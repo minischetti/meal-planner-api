@@ -4,5 +4,7 @@ export enum RootCollections {
 }
 
 export enum SubCollections {
-    RECIPES = "recipes"
+    RECIPES = "recipes",
+    INVITES = "invites",
+    MEMBERS = "members"
 }

@@ -1,5 +1,6 @@
 import express, { Request, Response } from "express";
-import {Profile, Recipe, Group, Invite, NewUserRequest, NewProfileRequest, NewRecipeRequest, NewGroupRequest, NewInviteRequest} from "./models/index";
+import {Profile, Recipe, Group, SourceInvite as SenderInvite, ReceivingInvite as RecipientInvite, GroupMemberStatus, GroupMember} from "./models/data-types";
+import {NewUserRequest, NewProfileRequest, NewRecipeRequest, NewGroupRequest, GroupInviteResponseRequest} from "./models/request-bodies"
 import {SubCollections, RootCollections} from "./firebase/collections";
 
 // Firebase App (the core Firebase SDK) is always required and
@@ -36,16 +37,6 @@ server.listen(listenPort, () => {
 });
 
 server.use(express.json());
-
-// const mockDatabase = {
-//     users: [
-//         {
-//             id: 0,
-//             exercises: Array<Exercise>(),
-//             workouts: Array<Workout>()
-//         }
-//     ]
-// }
 
 /**
  * Creates a new user.
@@ -153,7 +144,7 @@ server.route('/api/profiles/:profile/recipes').get((request, response) => {
 
 
 /**
- * Gets a specific recipe from a profile.
+ * Gets a recipe from a profile.
  */
 server.route('/api/profiles/:profile/recipes/:recipe').get((request, response) => {
     const profileId = request.params['profile'];
@@ -184,7 +175,7 @@ server.route('/api/profiles/:profile/recipes').post((request, response) => {
         authors,
         ingredients,
         instructions
-    }
+    };
 
     database.collection(RootCollections.PROFILES).doc(profileId).collection(SubCollections.RECIPES).doc().set(newRecipe)
         .then((firebaseResponse: any) => {
@@ -208,7 +199,7 @@ server.route('/api/profiles/:profile/recipes/:recipe').put((request, response) =
         authors,
         ingredients,
         instructions
-    }
+    };
 
     database.collection(RootCollections.PROFILES).doc(profileId).collection(SubCollections.RECIPES).doc(recipeId).set(editedRecipe)
         .then((firebaseResponse: any) => {
@@ -241,18 +232,33 @@ server.route('/api/profiles/:profile/recipes/:recipe').delete((request, response
 server.route('/api/groups').post((request, response) => {
     const {name, members} = request.body;
 
+    const groupDocument = database.collection(RootCollections.GROUPS).doc();
+    const groupDocumentId = groupDocument.id;
+
     const newGroup: NewGroupRequest = {
-        name,
-        members
+        id: groupDocumentId,
+        name
+    };
+
+    const batch = database.batch();
+
+    batch.set(groupDocument, newGroup);
+
+    // Add a batch operation for each member
+    if (members.length) {
+        members.forEach((member: GroupMember) => {
+            batch.set(groupDocument.collection(SubCollections.MEMBERS).doc(member.id), member);
+        });
     }
 
-    database.collection(RootCollections.GROUPS).doc().set(newGroup)
-        .then((firebaseResponse: any) => {
-            response.status(200).send(`Group successfully created`);
+    // Batch commit the group creation and member additions
+    batch.commit()
+        .then(() => {
+            response.status(200).send(`Group ${groupDocumentId} successfully created`);
         })
-        .catch((error: any) => {
+        .catch((error: firebase.firestore.FirestoreError) => {
             response.status(400).send(error);
-        })
+        });
 });
 
 /**
@@ -260,7 +266,7 @@ server.route('/api/groups').post((request, response) => {
  */
 server.route('/api/groups').get((request, response) => {
     database.collection(RootCollections.GROUPS).get()
-        .then((snapshot: any) => {
+        .then((snapshot: firebase.firestore.QuerySnapshot) => {
             if (snapshot.docs.length) {
                 const groups = snapshot.docs.map((group: any) => group.data());
                 response.status(200).send(groups);
@@ -293,27 +299,106 @@ server.route('/api/groups/:group').get((request, response) => {
 });
 
 /**
- * Invites a user to a group.
+ * Gets a groups invites.
  */
-server.route('/api/groups/:group/invite').post((request, response) => {
+server.route('/api/groups/:group/invites').get((request, response) => {
     const groupId = request.params['group'];
-    const {sender, recipient} = request.body;
 
-    const invite: NewInviteRequest = {
-        sender,
-        recipient,
-        group: groupId
-    }
-
-    database.collection(RootCollections.GROUPS).doc(groupId).set()
-        .then((document: any) => {
-            if (document.exists) {
-                response.status(200).send(document.data());
+    database.collection(RootCollections.GROUPS).doc(groupId).collection(SubCollections.INVITES).get()
+        .then((snapshot: firebase.firestore.QuerySnapshot) => {
+            if (snapshot.docs.length) {
+                const invites = snapshot.docs.map((invite: any) => invite.data());
+                response.status(200).send(invites);
             } else {
-                response.status(404).send("Group not found")
+                response.status(404).send("There are no invites for this group");
             }
         })
         .catch((error: any) => {
+            response.status(400).send(error);
+        })
+});
+
+/**
+ * Invites a user to a group.
+ */
+server.route('/api/groups/:group/invite').post((request, response) => {
+    const group = request.params['group'];
+    const {sender, recipient} = request.body;
+
+    const groupInviteDocument = database.collection(RootCollections.GROUPS).doc(group).collection(SubCollections.INVITES).doc();
+    const inviteId = groupInviteDocument.id;
+    const profileInviteDocument = database.collection(RootCollections.PROFILES).doc(recipient).collection(SubCollections.INVITES).doc(inviteId);
+
+    const senderInvite: SenderInvite = {
+        inviteId,
+        sender,
+        recipient,
+        group,
+        active: true,
+        answer: null
+    };
+
+    const recipientInvite: RecipientInvite = {
+        inviteId,
+        sender,
+        group,
+        active: true,
+        answer: null
+    };
+
+    const batch = database.batch();
+
+    batch.set(groupInviteDocument, senderInvite);
+    batch.set(profileInviteDocument, recipientInvite);
+
+    // Batch commit the updates to the group and profile invites
+    batch.commit()
+        .then(() => {
+            response.status(200).send(`Invite to group ${group} sent to user ${recipient}`);
+        })
+        .catch((error: firebase.firestore.FirestoreError) => {
+            response.status(400).send(error);
+        });
+});
+
+/**
+ * Responds to an invite.
+ */
+server.route('/api/profiles/:profile/invites/:invite').post((request, response) => {
+    const profile = request.params['profile'];
+    const invite = request.params['invite'];
+    const {group, answer} = request.body;
+
+    const inviteResponse = {
+        answer,
+        active: false
+    }
+
+    const groupInviteCollection = database.collection(RootCollections.GROUPS).doc(group).collection(SubCollections.INVITES);
+    const groupMemberCollection = database.collection(RootCollections.GROUPS).doc(group).collection(SubCollections.MEMBERS);
+    const groupInviteDocument = groupInviteCollection.doc(invite);
+
+    const recipientProfileInviteCollection = database.collection(RootCollections.PROFILES).doc(profile).collection(SubCollections.INVITES);
+    const recipientProfileInviteDocument = recipientProfileInviteCollection.doc(invite);
+
+    const batch = database.batch();
+
+    // Update the group's invite with the answer and inactive status
+    batch.update(groupInviteDocument, inviteResponse);
+
+    // Update the recipient's invite with the answer and inactive status
+    batch.update(recipientProfileInviteDocument, inviteResponse);
+
+    if (answer === true) {
+        batch.set(groupMemberCollection.doc(profile), {id: profile, status: GroupMemberStatus.MEMBER});
+    }
+
+    // Batch commit the updates to the group and profile invites and add the user to the group if the invite was accepted
+    batch.commit()
+        .then(() => {
+            response.status(200).send(`User ${profile} added to group ${group}`);
+        })
+        .catch((error: firebase.firestore.FirestoreError) => {
             response.status(400).send(error);
         });
 });
