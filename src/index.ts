@@ -1,6 +1,6 @@
 import express, { Request, Response } from "express";
 import {Profile, Recipe, Group, SourceInvite as SenderInvite, ReceivingInvite as RecipientInvite, GroupMemberStatus, GroupMember} from "./models/data-types";
-import {NewUserRequest, NewProfileRequest, NewRecipeRequest, NewGroupRequest, GroupInviteResponseRequest} from "./models/request-bodies"
+import {NewUserRequest, NewProfileRequest, NewRecipeRequest, NewGroupRequest, GroupInviteResponseRequest, AddRecipeToGroupRequest} from "./models/request-bodies"
 import {SubCollections, RootCollections} from "./firebase/collections";
 
 // Firebase App (the core Firebase SDK) is always required and
@@ -43,7 +43,6 @@ server.use(express.json());
  */
 server.route('/api/users/').post((request: Request, response: any) => {
     const {email, password} = request.body;
-    console.log(request.body);
 
     firebase.auth().createUserWithEmailAndPassword(email, password)
     .then((firebaseResponse: any) => {
@@ -240,18 +239,20 @@ server.route('/api/groups').post((request, response) => {
         name
     };
 
+    // Initiate a batch operation
     const batch = database.batch();
 
+    // Queue the creation of a new group
     batch.set(groupDocument, newGroup);
 
-    // Add a batch operation for each member
+    // Queue the addition of each member to the group
     if (members.length) {
         members.forEach((member: GroupMember) => {
             batch.set(groupDocument.collection(SubCollections.MEMBERS).doc(member.id), member);
         });
     }
 
-    // Batch commit the group creation and member additions
+    // Commit the batch operation for group creation and member additions
     batch.commit()
         .then(() => {
             response.status(200).send(`Group ${groupDocumentId} successfully created`);
@@ -299,7 +300,7 @@ server.route('/api/groups/:group').get((request, response) => {
 });
 
 /**
- * Gets a groups invites.
+ * Gets a group's invites.
  */
 server.route('/api/groups/:group/invites').get((request, response) => {
     const groupId = request.params['group'];
@@ -346,9 +347,13 @@ server.route('/api/groups/:group/invite').post((request, response) => {
         answer: null
     };
 
+    // Initiate a batch operation
     const batch = database.batch();
 
+    // Queue the association of the sender invite to the group
     batch.set(groupInviteDocument, senderInvite);
+
+    // Queue the association of the recipient's invite to their profile
     batch.set(profileInviteDocument, recipientInvite);
 
     // Batch commit the updates to the group and profile invites
@@ -381,6 +386,7 @@ server.route('/api/profiles/:profile/invites/:invite').post((request, response) 
     const recipientProfileInviteCollection = database.collection(RootCollections.PROFILES).doc(profile).collection(SubCollections.INVITES);
     const recipientProfileInviteDocument = recipientProfileInviteCollection.doc(invite);
 
+    // Initiate a batch operation
     const batch = database.batch();
 
     // Update the group's invite with the answer and inactive status
@@ -389,16 +395,108 @@ server.route('/api/profiles/:profile/invites/:invite').post((request, response) 
     // Update the recipient's invite with the answer and inactive status
     batch.update(recipientProfileInviteDocument, inviteResponse);
 
+    // If the recipient has accepted the invite, add them to the group
     if (answer === true) {
         batch.set(groupMemberCollection.doc(profile), {id: profile, status: GroupMemberStatus.MEMBER});
     }
 
-    // Batch commit the updates to the group and profile invites and add the user to the group if the invite was accepted
+    // Batch commit updates to the group and profile invites, then add the user to the group if the invite was accepted
     batch.commit()
         .then(() => {
             response.status(200).send(`User ${profile} added to group ${group}`);
         })
         .catch((error: firebase.firestore.FirestoreError) => {
             response.status(400).send(error);
+        });
+});
+
+/**
+ * Gets a recipe from a group.
+ */
+server.route('/api/groups/:group/recipes/:recipe').get((request, response) => {
+    const group = request.params['group'];
+    const recipe = request.params['recipe'];
+
+    const recipeReference = database.collection(RootCollections.GROUPS).doc(group).collection(SubCollections.RECIPES).doc(recipe);
+
+    recipeReference.get()
+        .then(document => {
+            if (document.exists) {
+                response.status(200).send(document.data());
+            } else {
+                response.status(404).send(`Recipe ${recipe} does not exist in group ${group}`)
+            }
+        }).catch(error => {
+            response.status(400).send(`Error retrieving recipe ${recipe} from group ${group}`);
+        });
+});
+
+/**
+ * Gets all recipes from a group.
+ */
+server.route('/api/groups/:group/recipes/').get((request, response) => {
+    const group = request.params['group'];
+
+    const recipeCollectionReference = database.collection(RootCollections.GROUPS).doc(group).collection(SubCollections.RECIPES);
+
+    recipeCollectionReference.get()
+        .then((snapshot: firebase.firestore.QuerySnapshot) => {
+            if (snapshot.docs.length) {
+                const recipes = snapshot.docs.map((recipe: any) => recipe.data());
+                response.status(200).send(recipes);
+            } else {
+                response.status(404).send("There are no recipes linked to this group");
+            }
+        })
+        .catch((error: any) => {
+            response.status(400).send(error);
+        })
+});
+
+/**
+ * Links a recipe to a group.
+ */
+server.route('/api/groups/:group/recipes').post((request, response) => {
+    const group = request.params['group'];
+    const {recipeOwnerId, recipeId} = request.body;
+
+    const recipeToAdd: AddRecipeToGroupRequest = {
+        recipeOwnerId,
+        recipeId
+    };
+
+    const newGroupRecipe = database.collection(RootCollections.GROUPS).doc(group).collection(SubCollections.RECIPES).doc(recipeId);
+
+    database.runTransaction(transaction => {
+        return transaction.get(newGroupRecipe)
+            .then(result => {
+                if (result.exists) {
+                    response.status(409).send(`Recipe ${recipeId} is already linked to group ${group}`);
+                } else {
+                    newGroupRecipe.set(recipeToAdd)
+                        .then(result => {
+                            response.status(200).send(`Recipe ${newGroupRecipe.id} linked to group ${group}`);
+                        });
+                }
+            }).catch(error => {
+                response.status(400).send(`Failure linking recipe ${recipeToAdd.recipeId} to group ${group}`);
+            });
+    });
+});
+
+/**
+ * Unlinks a recipe from a group.
+ */
+server.route('/api/groups/:group/recipes/:recipe').delete((request, response) => {
+    const group = request.params['group'];
+    const recipe = request.params['recipe'];
+
+    const groupRecipe = database.collection(RootCollections.GROUPS).doc(group).collection(SubCollections.RECIPES).doc(recipe);
+
+    groupRecipe.delete()
+        .then(result => {
+            response.status(200).send(`Recipe ${groupRecipe.id} unlinked from group ${group}`);
+        }).catch(error => {
+            response.status(400).send(`Failure unlinking recipe ${groupRecipe.id} from group ${group}`);
         });
 });

@@ -27,3 +27,8 @@ export interface GroupInviteResponseRequest {
     group: string // the group id
     answer: boolean // true, if accepting
 }
+
+export interface AddRecipeToGroupRequest {
+    recipeOwnerId: string
+    recipeId: string
+}
