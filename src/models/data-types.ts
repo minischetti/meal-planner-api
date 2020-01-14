@@ -47,7 +47,6 @@ export interface Recipe {
     instructions: Array<Instruction>
 }
 
-
 export interface Author {
     id: string // user id
     status: AuthorStatus
@@ -65,4 +64,14 @@ export interface Ingredient {
 
 export interface Instruction {
     body: string
+}
+
+export interface Plan {
+    id: string
+    days: Array<PlanDay>
+}
+
+export interface PlanDay {
+    id: number
+    recipe: Recipe
 }

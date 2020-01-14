@@ -1,6 +1,6 @@
 import express, { Request, Response } from "express";
-import {Profile, Recipe, Group, SourceInvite as SenderInvite, ReceivingInvite as RecipientInvite, GroupMemberStatus, GroupMember} from "./models/data-types";
-import {NewUserRequest, NewProfileRequest, NewRecipeRequest, NewGroupRequest, GroupInviteResponseRequest, AddRecipeToGroupRequest} from "./models/request-bodies"
+import {Profile, Recipe, Group, SourceInvite as SenderInvite, ReceivingInvite as RecipientInvite, GroupMemberStatus, GroupMember, Plan} from "./models/data-types";
+import {NewUserRequest, NewProfileRequest, NewRecipeRequest, NewGroupRequest, GroupInviteResponseRequest, AddRecipeToGroupRequest, NewMealPlanRequest} from "./models/request-bodies"
 import {SubCollections, RootCollections} from "./firebase/collections";
 
 // Firebase App (the core Firebase SDK) is always required and
@@ -500,3 +500,138 @@ server.route('/api/groups/:group/recipes/:recipe').delete((request, response) =>
             response.status(400).send(`Failure unlinking recipe ${groupRecipe.id} from group ${group}`);
         });
 });
+
+/**
+ * Creates a personal meal plan.
+ */
+server.route('/api/profiles/:profile/plans').post((request, response) => {
+    const profile = request.params['profile'];
+    const {name, days} = request.body;
+
+    const mealPlan: NewMealPlanRequest = {
+        name,
+        days
+    };
+
+    database.collection(RootCollections.PROFILES).doc(profile).collection(SubCollections.PLANS).doc().set(mealPlan)
+        .then((firebaseResponse: any) => {
+            response.status(200).send(firebaseResponse);
+        })
+        .catch((error: any) => {
+            response.status(400).send(error);
+        });
+});
+
+/**
+ * Deletes a personal meal plan.
+ */
+server.route('/api/profiles/:profile/plans/:plan').delete((request, response) => {
+    const profile = request.params['profile'];
+    const plan = request.params['plan'];
+
+    database.collection(RootCollections.PROFILES).doc(profile).collection(SubCollections.PLANS).doc(plan).delete()
+        .then((firebaseResponse: any) => {
+            response.status(200).send(`Meal plan ${plan} successfully deleted`);
+        })
+        .catch((error: any) => {
+            response.status(400).send(error);
+        });
+});
+
+/**
+ * Links a recipe to a personal meal plan.
+ *
+ * Security: Owner
+ * Data: {id: string, days: [Day: Recipe]}
+ */
+server.route('/api/profiles/:profile/plans/:plan').post((request, response) => {
+    const profile = request.params['profile'];
+    const plan = request.params['plan'];
+    const {day: planDay} = request.body;
+
+    const planDayDocument = database.collection(RootCollections.PROFILES).doc(profile).collection(SubCollections.PLANS).doc(plan).collection(SubCollections.DAYS).doc(planDay.id);
+
+    planDayDocument.set(planDay, {merge: true})
+        .then((firebaseResponse: any) => {
+            response.status(200).send(`Recipe ${planDay.recipe} successfully linked to day ${planDayDocument.id}`);
+        })
+        .catch((error: any) => {
+            response.status(400).send(error);
+        });
+});
+
+/**
+ * Unlinks a recipe from a personal meal plan.
+ *
+ * Security: Owner
+ * Data: [Day: Recipe]
+ */
+
+/**
+ * Starts a personal week meal plan.
+ */
+
+/**
+ * Uses a personal meal plan as the current week's meal plan.
+ * Data: Object<MealPlan>
+ */
+
+/**
+ * Resets the current week's meal plan (i.e. unlinks all recipes or a linked meal plan).
+ */
+
+/**
+ * Ends (i.e. archives) a personal week meal plan.
+ */
+
+/**
+ * Gets all personal meal plans.
+ */
+
+/**
+ * Creates a group meal plan.
+ *
+ * Security: Must be the group owner or a contributor.
+ * Data: [Day: Recipe]
+ */
+
+/**
+ * Links a recipe to a group meal plan.
+ *
+ * Security: Must be the group owner or a contributor.
+ * Data: [Day: Recipe]
+ */
+
+/**
+ * Unlinks a recipe from a group meal plan.
+ *
+ * Security: Must be the group owner or a contributor.
+ * Data: [Day: Recipe]
+ */
+
+/**
+ * Starts the current week's meal plan.
+ *
+ * Security: Must be the group owner or a contributor.
+ */
+
+/**
+ * Links a recipe to the current week's meal plan.
+ *
+ * Security: Must be the group owner or a contributor.
+ * Data: [Day: Recipe]
+ */
+
+ /**
+  * Unlinks a recipe from the current week's meal plan.
+  *
+  * Security: Must be the group owner or a contributor.
+  * Data: [Day: Recipe]
+  */
+
+/**
+ * Proposes a meal for this week's plan.
+ *
+ * Security: Must be the group owner or a contributor.
+ * Data: [Day: Recipe]
+ */
