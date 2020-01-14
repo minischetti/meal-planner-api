@@ -1,4 +1,4 @@
-import {Author, GroupMember, Ingredient, Instruction, Recipe, MealDay} from "./data-types";
+import {Author, GroupMember, Ingredient, Instruction, Recipe, PlanDay} from "./data-types";
 
 export interface NewUserRequest {
     email: string
@@ -35,5 +35,5 @@ export interface AddRecipeToGroupRequest {
 
 export interface NewMealPlanRequest {
     name: string
-    days: Array<MealDay>
+    days: Array<PlanDay>
 }
