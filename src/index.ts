@@ -1,5 +1,5 @@
 import express, { Request, Response } from "express";
-import {Profile, Recipe, Group, SourceInvite as SenderInvite, ReceivingInvite as RecipientInvite, GroupMemberStatus, GroupMember, Plan} from "./models/data-types";
+import {Profile, Recipe, Group, SourceInvite as SenderInvite, ReceivingInvite as RecipientInvite, GroupMemberStatus, GroupMember, Plan, PlanDay} from "./models/data-types";
 import {NewUserRequest, NewProfileRequest, NewRecipeRequest, NewGroupRequest, GroupInviteResponseRequest, AddRecipeToGroupRequest, NewMealPlanRequest} from "./models/request-bodies"
 import {SubCollections, RootCollections} from "./firebase/collections";
 
@@ -127,10 +127,9 @@ server.route('/api/profiles/:profile/recipes').get((request, response) => {
     const profileId = request.params['profile'];
 
     database.collection(RootCollections.PROFILES).doc(profileId).collection(SubCollections.RECIPES).get()
-        .then((snapshot: any) => {
-            const recipes = snapshot.map((document: any) => document.data());
-
-            if (recipes.length) {
+        .then((snapshot: firebase.firestore.QuerySnapshot) => {
+            if (snapshot.docs.length) {
+                const recipes = snapshot.docs.map((document: any) => document.data());
                 response.status(200).send(recipes);
             } else {
                 response.status(404).send(`Profile ${profileId} does not have any recipes`);
@@ -445,11 +444,11 @@ server.route('/api/groups/:group/recipes/').get((request, response) => {
                 const recipes = snapshot.docs.map((recipe: any) => recipe.data());
                 response.status(200).send(recipes);
             } else {
-                response.status(404).send("There are no recipes linked to this group");
+                response.status(404).send(`There are no recipes linked to group ${group}`);
             }
         })
         .catch((error: any) => {
-            response.status(400).send(error);
+            response.status(400).send(`Error retrieving recipes from group ${group}`);
         })
 });
 
@@ -502,23 +501,67 @@ server.route('/api/groups/:group/recipes/:recipe').delete((request, response) =>
 });
 
 /**
+ * Gets a personal meal plan.
+ */
+server.route('/api/profiles/:profile/plans/:plan').get((request, response) => {
+    const profile = request.params['profile'];
+    const plan = request.params['plan'];
+
+    database.collection(RootCollections.PROFILES).doc(profile).collection(SubCollections.PLANS).doc(plan).get()
+        .then(document => {
+            if (document.exists) {
+                response.status(200).send(document.data());
+            } else {
+                response.status(404).send(`Profile ${profile} does not contain plan ${plan}`)
+            }
+        }).catch(error => {
+            response.status(400).send(`Error retrieving plan ${plan} from profile ${profile}`);
+        });
+});
+
+
+/**
+ * Gets all personal meal plans.
+ */
+server.route('/api/profiles/:profile/plans/').get((request, response) => {
+    const profile = request.params['profile'];
+
+    database.collection(RootCollections.PROFILES).doc(profile).collection(SubCollections.PLANS).get()
+        .then((snapshot: firebase.firestore.QuerySnapshot) => {
+            if (snapshot.docs.length) {
+                const plans = snapshot.docs.map((document: any) => document.data());
+                response.status(200).send(plans);
+            } else {
+                response.status(404).send(`Profile ${profile} does not have any meal plans`);
+            }
+        })
+        .catch((error: any) => {
+            console.log(error);
+            response.status(400).send(error);
+        });
+});
+
+/**
  * Creates a personal meal plan.
  */
 server.route('/api/profiles/:profile/plans').post((request, response) => {
     const profile = request.params['profile'];
     const {name, days} = request.body;
 
-    const mealPlan: NewMealPlanRequest = {
+    const newMealPlanDocument = database.collection(RootCollections.PROFILES).doc(profile).collection(SubCollections.PLANS).doc();
+
+    const newMealPlan: NewMealPlanRequest = {
         name,
+        id: newMealPlanDocument.id,
         days
     };
 
-    database.collection(RootCollections.PROFILES).doc(profile).collection(SubCollections.PLANS).doc().set(mealPlan)
+    newMealPlanDocument.set(newMealPlan)
         .then((firebaseResponse: any) => {
-            response.status(200).send(firebaseResponse);
+            response.status(200).send(`New meal plan created with id: ${newMealPlanDocument.id}`);
         })
         .catch((error: any) => {
-            response.status(400).send(error);
+            response.status(400).send(`Error creating meal plan: ${error}`);
         });
 });
 
@@ -531,10 +574,10 @@ server.route('/api/profiles/:profile/plans/:plan').delete((request, response) =>
 
     database.collection(RootCollections.PROFILES).doc(profile).collection(SubCollections.PLANS).doc(plan).delete()
         .then((firebaseResponse: any) => {
-            response.status(200).send(`Meal plan ${plan} successfully deleted`);
+            response.status(200).send(`Deleted plan ${plan} from profile ${profile}`);
         })
         .catch((error: any) => {
-            response.status(400).send(error);
+            response.status(400).send(`{Error deleting plan ${plan} from profile ${profile}: ${error}`);
         });
 });
 
@@ -542,18 +585,22 @@ server.route('/api/profiles/:profile/plans/:plan').delete((request, response) =>
  * Links a recipe to a personal meal plan.
  *
  * Security: Owner
- * Data: {id: string, days: [Day: Recipe]}
  */
 server.route('/api/profiles/:profile/plans/:plan').post((request, response) => {
     const profile = request.params['profile'];
     const plan = request.params['plan'];
-    const {day: planDay} = request.body;
+    const {id, recipe}: PlanDay = request.body;
 
-    const planDayDocument = database.collection(RootCollections.PROFILES).doc(profile).collection(SubCollections.PLANS).doc(plan).collection(SubCollections.DAYS).doc(planDay.id);
+    const planDay: PlanDay = {
+        id,
+        recipe
+    }
+
+    const planDayDocument = database.collection(RootCollections.PROFILES).doc(profile).collection(SubCollections.PLANS).doc(plan).collection(SubCollections.DAYS).doc(planDay.id.toString());
 
     planDayDocument.set(planDay, {merge: true})
         .then((firebaseResponse: any) => {
-            response.status(200).send(`Recipe ${planDay.recipe} successfully linked to day ${planDayDocument.id}`);
+            response.status(200).send(`Recipe ${planDay.recipe} successfully linked to day ${planDayDocument.id} of plan ${plan}`);
         })
         .catch((error: any) => {
             response.status(400).send(error);
@@ -564,12 +611,26 @@ server.route('/api/profiles/:profile/plans/:plan').post((request, response) => {
  * Unlinks a recipe from a personal meal plan.
  *
  * Security: Owner
- * Data: [Day: Recipe]
  */
+server.route('/api/profiles/:profile/plans/:plan/:day').delete((request, response) => {
+    const profile = request.params['profile'];
+    const plan = request.params['plan'];
+    const day = request.params['day'];
 
-/**
- * Starts a personal week meal plan.
- */
+    const planDayDocument = database.collection(RootCollections.PROFILES).doc(profile).collection(SubCollections.PLANS).doc(plan).collection(SubCollections.DAYS).doc(day);
+
+    planDayDocument.delete()
+        .then((firebaseResponse: any) => {
+            response.status(200).send(`Recipe successfully unlinked from day ${planDayDocument.id} of plan ${plan}`);
+        })
+        .catch((error: any) => {
+            response.status(400).send(error);
+        });
+});
+
+// /**
+//  * Starts a personal week meal plan.
+//  */
 
 /**
  * Uses a personal meal plan as the current week's meal plan.
@@ -581,11 +642,7 @@ server.route('/api/profiles/:profile/plans/:plan').post((request, response) => {
  */
 
 /**
- * Ends (i.e. archives) a personal week meal plan.
- */
-
-/**
- * Gets all personal meal plans.
+ * Ends (i.e. archives) a personal current week meal plan.
  */
 
 /**

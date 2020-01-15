@@ -35,5 +35,6 @@ export interface AddRecipeToGroupRequest {
 
 export interface NewMealPlanRequest {
     name: string
+    id: string
     days: Array<PlanDay>
 }

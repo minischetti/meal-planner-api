@@ -73,5 +73,5 @@ export interface Plan {
 
 export interface PlanDay {
     id: number
-    recipe: Recipe
+    recipe: string
 }
