@@ -628,22 +628,30 @@ server.route('/api/profiles/:profile/plans/:plan/:day').delete((request, respons
         });
 });
 
-// /**
-//  * Starts a personal week meal plan.
-//  */
-
 /**
- * Uses a personal meal plan as the current week's meal plan.
- * Data: Object<MealPlan>
+ * Sets the active status of a meal plan.
  */
+server.route('/api/profiles/:profile/plans/:plan/').post((request, response) => {
+    const profile = request.params['profile'];
+    const plan = request.params['plan'];
 
-/**
- * Resets the current week's meal plan (i.e. unlinks all recipes or a linked meal plan).
- */
+    const planDocument = database.collection(RootCollections.PROFILES).doc(profile).collection(SubCollections.PLANS).doc(plan);
+    const profileDocument = database.collection(RootCollections.PROFILES).doc(profile);
 
-/**
- * Ends (i.e. archives) a personal current week meal plan.
- */
+    database.runTransaction(transaction => {
+        return transaction.get(planDocument)
+            .then(result => {
+                if (result.exists) {
+                    profileDocument.set({activeMealPlan: planDocument.id}, {merge: true})
+                    .then(result => {
+                        response.status(200).send(`Plan ${planDocument.id} set as the active meal plan`);
+                    });
+                }
+            }).catch(error => {
+                response.status(400).send(`Error setting plan ${planDocument.id} as the active meal plan`);
+            });
+    });
+});
 
 /**
  * Creates a group meal plan.

@@ -3,9 +3,7 @@ export interface Profile {
     firstName: string
     lastName: string
     email: string
-    pendingInvites: Array<ReceivingInvite> // an array of pending group invites
-    recipes: Array<Recipe> // an array of recipes
-    groups: Array<string> // an array of group ids
+    activeMealPlan: string
 }
 
 export interface SourceInvite extends ReceivingInvite {
@@ -69,6 +67,7 @@ export interface Instruction {
 export interface Plan {
     id: string
     days: Array<PlanDay>
+    active: boolean
 }
 
 export interface PlanDay {

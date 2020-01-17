@@ -1,0 +1,86 @@
+{
+    "groups": {
+        "GROUP0": {
+            "id": "GROUP0",
+            "name": "Krazy Keto Kollective",
+            "members": {
+                "USER0": {
+                    "level": "owner"
+                },
+                "USER1": {
+                    "level": "contributor"
+                },
+                "USER2": {
+                    "level": "member"
+                }
+            },
+            "customPlan": {
+                "0": "RECIPE0",
+                "1": null,
+                "2": null,
+                "3": null,
+                "4": null,
+                "5": null,
+                "6": null,
+                "7": null
+            },
+            "plans": {
+                "PLAN0": "true"
+            }
+        }
+    },
+    "users": {
+        "USER0": {
+            "firstName": "Dom",
+            "lastName": "Minischetti",
+            "groups": {
+                "GROUP0": true
+            }
+        },
+        "USER1": {
+            "firstName": "Roger",
+            "lastName": "Smith",
+            "groups": {
+                "GROUP0": true
+            },
+            "USER2": {
+                "firstName": "Patti",
+                "lastName": "Plant",
+                "groups": {
+                    "GROUP0": true
+                }
+            }
+        }
+    },
+    "recipes": {
+        "RECIPE0": {
+            "owner": "USER0",
+            "contributors": {
+                "USER1": true
+            },
+            "name": "Krazy Keto Korn",
+            "ingredients": [],
+            "instructions": []
+        }
+    },
+    "plans": {
+        "PLAN0": {
+            "id": "PLAN0",
+            "name": "Krazy Keto",
+            "owner": "USER0",
+            "contributors": {
+                "USER1": true
+            },
+            "days": {
+                "0": "RECIPE0",
+                "1": null,
+                "2": null,
+                "3": null,
+                "4": null,
+                "5": null,
+                "6": null,
+                "7": null
+            }
+        }
+    }
+}
