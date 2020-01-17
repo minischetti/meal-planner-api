@@ -3,17 +3,12 @@
         "GROUP0": {
             "id": "GROUP0",
             "name": "Krazy Keto Kollective",
-            "members": {
-                "USER0": {
-                    "level": "owner"
-                },
-                "USER1": {
-                    "level": "contributor"
-                },
-                "USER2": {
-                    "level": "member"
-                }
+            "people": {
+                "PERSON0": "owner",
+                "PERSON1": "contributor",
+                "PERSON2": "member"
             },
+            "activePlan": "custom",
             "customPlan": {
                 "0": "RECIPE0",
                 "1": null,
@@ -25,40 +20,63 @@
                 "7": null
             },
             "plans": {
-                "PLAN0": "true"
+                "PLAN0": "subscriber"
+            },
+            "recipes": {
+                "RECIPE0": "subscriber"
             }
         }
     },
-    "users": {
-        "USER0": {
-            "firstName": "Dom",
+    "people": {
+        "PERSON0": {
+            "firstName": "Dominic",
             "lastName": "Minischetti",
+            "recipes": {
+                "RECIPE0": "owner"
+            },
+            "plans": {
+                "PLAN0": "owner"
+            },
             "groups": {
-                "GROUP0": true
+                "GROUP0": "owner"
             }
         },
-        "USER1": {
-            "firstName": "Roger",
-            "lastName": "Smith",
-            "groups": {
-                "GROUP0": true
+        "PERSON1": {
+            "firstName": "Daniel",
+            "lastName": "Craig",
+            "recipes": {
+                "RECIPE0": "contributor"
             },
-            "USER2": {
-                "firstName": "Patti",
-                "lastName": "Plant",
-                "groups": {
-                    "GROUP0": true
-                }
+            "plans": {
+                "PLAN0": "contributor"
+            },
+            "groups": {
+                "GROUP0": "contributor"
+            }
+        },
+        "PERSON2": {
+            "firstName": "Laura",
+            "lastName": "Bailey",
+            "recipes": {
+                "RECIPE0": "subscriber"
+            },
+            "plans": {
+                "PLAN0": "subscriber"
+            },
+            "groups": {
+                "GROUP0": "member"
             }
         }
     },
     "recipes": {
         "RECIPE0": {
-            "owner": "USER0",
-            "contributors": {
-                "USER1": true
-            },
+            "id": "RECIPE0",
             "name": "Krazy Keto Korn",
+            "people": {
+                "PERSON0": "owner",
+                "PERSON1": "contributor",
+                "PERSON2": "subscriber"
+            },
             "ingredients": [],
             "instructions": []
         }
@@ -67,9 +85,10 @@
         "PLAN0": {
             "id": "PLAN0",
             "name": "Krazy Keto",
-            "owner": "USER0",
-            "contributors": {
-                "USER1": true
+            "people": {
+                "PERSON0": "owner",
+                "PERSON1": "contributor",
+                "PERSON2": "subscriber"
             },
             "days": {
                 "0": "RECIPE0",
