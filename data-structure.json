@@ -22,9 +22,15 @@
             "firstName": "Dominic",
             "lastName": "Minischetti",
             "recipes": {
-                "RECIPE0": "owner",
-                "RECIPE1": "subscriber",
-                "RECIPE2": "contributor"
+                "RECIPE0": {
+                    "role": "owner"
+                },
+                "RECIPE1": {
+                    "role": "subscriber"
+                },
+                "RECIPE2": {
+                    "role": "contributor"
+                }
             },
             "plans": {
                 "PLAN0": "owner"
@@ -209,5 +215,5 @@
                 }
             }
         }
-    },
+    }
 }

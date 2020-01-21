@@ -1,5 +1,5 @@
 import express, {Request, Response} from "express";
-import {GroupUserRole} from "./models/roles";
+import {GroupUserRole, RecipeUserRole} from "./models/roles";
 import {Profile, Recipe, Group, SourceInvite as SenderInvite, ReceivingInvite as RecipientInvite, GroupUser, Plan, PlanDay} from "./models/data-types";
 import {NewPersonAccountRequest, NewPersonProfileRequest, NewRecipeRequest, NewGroupRequest, GroupInviteResponseRequest, AddRecipeToGroupRequest, NewMealPlanRequest, EditedRecipeRequest} from "./models/request-bodies"
 import {SubCollections, RootCollections} from "./firebase/collections";
@@ -61,16 +61,17 @@ server.route('/api/people/profiles').post((request: Request, response: any) => {
     const {id, firstName, lastName} = request.body;
 
     const newUser: NewPersonProfileRequest = {
+        id,
         firstName,
         lastName
     }
 
     database.collection(RootCollections.PEOPLE).doc(id).set(newUser)
         .then((firebaseResponse: any) => {
-            response.status(200).send(firebaseResponse);
+            response.status(200).send(`Profile created for person ${id}`);
         })
         .catch((error: any) => {
-            response.status(400).send(error);
+            response.status(400).send(`Error creating profile for person ${id}`);
         });
 });
 
@@ -82,10 +83,10 @@ server.route('/api/login').post((request: Request, response: any) => {
 
     firebase.auth().signInWithEmailAndPassword(email, password)
         .then((firebaseResponse: any) => {
-            response.status(200).send(firebaseResponse);
+            response.status(200).send(`Signed in`);
         })
-        .catch((error: any) => {
-            response.status(400).send(error);
+        .catch((error: firebase.FirebaseError) => {
+            response.status(400).send(`Error signing in: ${error.message}`);
         });
 });
 
@@ -97,8 +98,8 @@ server.route('/api/logout').post((request: Request, response: any) => {
     .then((firebaseResponse: any) => {
         response.status(200).send("Logged out")
     })
-    .catch((error: any) => {
-        response.status(400).send(error);
+    .catch((error: firebase.FirebaseError) => {
+        response.status(400).send(`Error logging out: ${error.message}`);
     });
 });
 
@@ -116,8 +117,8 @@ server.route('/api/people/:person/').get((request, response) => {
             response.status(404).send(`Person ${person} does not exist`);
         }
     })
-    .catch((error: any) => {
-        response.status(400).send(error);
+    .catch((error: firebase.FirebaseError) => {
+        response.status(400).send(`Error getting person ${person}: ${error.message}`);
     });
 });
 
@@ -127,7 +128,10 @@ server.route('/api/people/:person/').get((request, response) => {
 server.route('/api/people/:person/recipes').get((request, response) => {
     const person = request.params['person'];
 
-    database.collection(RootCollections.PEOPLE).doc(person).collection(SubCollections.RECIPES).get()
+    // const recipeDocuments = database.collection(RootCollections.PEOPLE).doc(person).collection(SubCollections.RECIPES).where("role", "==", "owner");
+    const recipeDocuments = database.collectionGroup(SubCollections.MEMBERS).where("id", "==", person);
+
+    recipeDocuments.get()
         .then((snapshot: firebase.firestore.QuerySnapshot) => {
             if (snapshot.docs.length) {
                 const recipes = snapshot.docs.map((document: any) => document.data());
@@ -136,8 +140,8 @@ server.route('/api/people/:person/recipes').get((request, response) => {
                 response.status(404).send(`Person ${person} does not have any recipes`);
             }
         })
-        .catch((error: any) => {
-            response.status(400).send(error);
+        .catch((error: firebase.FirebaseError) => {
+            response.status(400).send(`Error getting recipes from person ${person}: ${error.message}`);
         });
 });
 
@@ -157,8 +161,8 @@ server.route('/api/people/:person/recipes/:recipe').get((request, response) => {
                 response.status(404).send("Recipe not found")
             }
         })
-        .catch((error: any) => {
-            response.status(400).send(error);
+        .catch((error: firebase.FirebaseError) => {
+            response.status(400).send(`Error getting recipe ${recipe} from person ${person}: ${error.message}`);
         });
 });
 
@@ -181,10 +185,10 @@ server.route('/api/people/:person/recipes').post((request, response) => {
 
     newRecipeDocument.set(newRecipe)
         .then((firebaseResponse: any) => {
-            response.status(200).send(firebaseResponse);
+            response.status(200).send("Created recipe");
         })
-        .catch((error: any) => {
-            response.status(400).send(error);
+        .catch((error: firebase.FirebaseError) => {
+            response.status(400).send(`Error adding recipe to person ${person}: ${error.message}`);
         });
 });
 
@@ -207,8 +211,8 @@ server.route('/api/people/:person/recipes/:recipe').put((request, response) => {
         .then((firebaseResponse: any) => {
             response.status(200).send(firebaseResponse);
         })
-        .catch((error: any) => {
-            response.status(400).send(error);
+        .catch((error: firebase.FirebaseError) => {
+            response.status(400).send(`Error editing recipe ${recipe}: ${error.message}`);
         });
 });
 
@@ -223,8 +227,8 @@ server.route('/api/people/:person/recipes/:recipe').delete((request, response) =
         .then((firebaseResponse: any) => {
             response.status(200).send(`Recipe ${recipe} successfully deleted`);
         })
-        .catch((error: any) => {
-            response.status(400).send(error);
+        .catch((error: firebase.FirebaseError) => {
+            response.status(400).send(`Error deleting recipe ${recipe} from person ${person}: ${error.message}`);
         });
 });
 
@@ -261,7 +265,7 @@ server.route('/api/groups').post((request, response) => {
             response.status(200).send(`Group ${groupDocumentId} successfully created`);
         })
         .catch((error: firebase.firestore.FirestoreError) => {
-            response.status(400).send(error);
+            response.status(400).send(`Error creating new group: ${error.message}`);
         });
 });
 
@@ -278,8 +282,8 @@ server.route('/api/groups').get((request, response) => {
                 response.status(404).send("There are no groups");
             }
         })
-        .catch((error: any) => {
-            response.status(400).send(error);
+        .catch((error: firebase.FirebaseError) => {
+            response.status(400).send(`Error getting groups: ${error.message}`);
         })
 });
 
@@ -287,9 +291,9 @@ server.route('/api/groups').get((request, response) => {
  * Gets a specific group.
  */
 server.route('/api/groups/:group').get((request, response) => {
-    const groupId = request.params['group'];
+    const group = request.params['group'];
 
-    database.collection(RootCollections.GROUPS).doc(groupId).get()
+    database.collection(RootCollections.GROUPS).doc(group).get()
         .then((document: any) => {
             if (document.exists) {
                 response.status(200).send(document.data());
@@ -298,7 +302,7 @@ server.route('/api/groups/:group').get((request, response) => {
             }
         })
         .catch((error: any) => {
-            response.status(400).send(error);
+            response.status(400).send(`Error getting group ${group}: ${error.message}`);
         });
 });
 

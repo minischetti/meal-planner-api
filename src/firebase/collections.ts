@@ -1,6 +1,8 @@
 export enum RootCollections {
     PEOPLE = "people",
-    GROUPS = "groups"
+    GROUPS = "groups",
+    RECIPES = "recipes",
+    PLANS = "plans"
 }
 
 export enum SubCollections {

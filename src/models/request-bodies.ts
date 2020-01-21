@@ -6,6 +6,7 @@ export interface NewPersonAccountRequest {
 }
 
 export interface NewPersonProfileRequest {
+    id: string
     firstName: string
     lastName: string
 }
