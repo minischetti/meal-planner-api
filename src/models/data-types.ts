@@ -1,3 +1,5 @@
+import {GroupUserRole, RecipeUserRole, PlanUserRole} from "./roles";
+
 export interface Profile {
     id: string
     firstName: string
@@ -26,15 +28,9 @@ export interface Group {
     invites: Array<SourceInvite>
 }
 
-export interface GroupMember {
+export interface GroupUser {
     id: string // user id
-    status: GroupMemberStatus
-}
-
-export enum GroupMemberStatus {
-    OWNER = "owner",
-    CONTRIBUTOR = "contributor",
-    MEMBER = "member"
+    role: GroupUserRole
 }
 
 export interface Recipe {
@@ -47,12 +43,7 @@ export interface Recipe {
 
 export interface Author {
     id: string // user id
-    status: AuthorStatus
-}
-
-export enum AuthorStatus {
-    OWNER = "owner",
-    CONTRIBUTOR = "contributor"
+    role: RecipeUserRole
 }
 
 export interface Ingredient {

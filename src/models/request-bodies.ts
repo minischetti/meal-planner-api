@@ -1,21 +1,25 @@
-import {Author, GroupMember, Ingredient, Instruction, Recipe, PlanDay} from "./data-types";
+import {Author, GroupUser, Ingredient, Instruction, Recipe, PlanDay} from "./data-types";
 
-export interface NewUserRequest {
+export interface NewPersonAccountRequest {
     email: string
     password: string
 }
 
-export interface NewProfileRequest {
+export interface NewPersonProfileRequest {
     firstName: string
     lastName: string
 }
 
 export interface NewGroupRequest {
-    id: string
+    id: string // new group document id
     name: string
 }
 
-export interface NewRecipeRequest {
+export interface NewRecipeRequest extends EditedRecipeRequest {
+    id: string // new recipe document id
+}
+
+export interface EditedRecipeRequest {
     name: string
     authors: Array<Author>
     ingredients: Array<Ingredient>

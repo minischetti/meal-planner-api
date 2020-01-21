@@ -8,22 +8,12 @@
                 "PERSON1": "contributor",
                 "PERSON2": "member"
             },
-            "activePlan": "custom",
-            "customPlan": {
-                "0": "RECIPE0",
-                "1": null,
-                "2": null,
-                "3": null,
-                "4": null,
-                "5": null,
-                "6": null,
-                "7": null
-            },
+            "activePlan": "PLAN0",
             "plans": {
-                "PLAN0": "subscriber"
+                "PLAN0": "true"
             },
             "recipes": {
-                "RECIPE0": "subscriber"
+                "RECIPE0": "true"
             }
         }
     },
@@ -32,7 +22,9 @@
             "firstName": "Dominic",
             "lastName": "Minischetti",
             "recipes": {
-                "RECIPE0": "owner"
+                "RECIPE0": "owner",
+                "RECIPE1": "subscriber",
+                "RECIPE2": "contributor"
             },
             "plans": {
                 "PLAN0": "owner"
@@ -45,7 +37,9 @@
             "firstName": "Daniel",
             "lastName": "Craig",
             "recipes": {
-                "RECIPE0": "contributor"
+                "RECIPE0": "contributor",
+                "RECIPE1": "subscriber",
+                "RECIPE2": "owner"
             },
             "plans": {
                 "PLAN0": "contributor"
@@ -58,7 +52,9 @@
             "firstName": "Laura",
             "lastName": "Bailey",
             "recipes": {
-                "RECIPE0": "subscriber"
+                "RECIPE0": "subscriber",
+                "RECIPE1": "owner",
+                "RECIPE2": "subscriber"
             },
             "plans": {
                 "PLAN0": "subscriber"
@@ -77,8 +73,111 @@
                 "PERSON1": "contributor",
                 "PERSON2": "subscriber"
             },
-            "ingredients": [],
-            "instructions": []
+            "groups": {
+                "GROUP0": "true"
+            },
+            "time": {
+                "prep": "5 minutes",
+                "cook": "6 minutes"
+            },
+            "ingredients": [
+                {
+                    "name": "Korn",
+                    "amount": "1 cob"
+                },
+                {
+                    "name": "Butter",
+                    "amount": "1 tablespoon"
+                },
+                {
+                    "name": "Salt",
+                    "amount": null
+                }
+            ],
+            "instructions": [
+                "Bring water to a boil",
+                "Once boiling, cook corn for 6 minutes",
+                "Butter the corn to desired levels",
+                "Salt the corn to desired levels"
+            ]
+        },
+        "RECIPE1": {
+            "id": "RECIPE2",
+            "name": "Bailey's Bomb Burger",
+            "people": {
+                "PERSON0": "subscriber",
+                "PERSON1": "subscriber",
+                "PERSON2": "owner"
+            },
+            "time": {
+                "prep": "20 minutes",
+                "cook": "6 minutes"
+            },
+            "ingredients": [
+                {
+                    "name": "Ground beef",
+                    "amount": "1lb"
+                },
+                {
+                    "name": "Pork fat",
+                    "amount": "1/4 lb"
+                },
+                {
+                    "name": "American cheese",
+                    "amount": "1 slice"
+                },
+                {
+                    "name": "Lettuce",
+                    "amount": null
+                },
+                {
+                    "name": "Ketchup",
+                    "amount": null
+                },
+                {
+                    "name": "Mayonnaise",
+                    "amount": null
+                }
+            ],
+            "instructions": [
+                "Mix the ground beef and pork fat until combined",
+                "Form the patties",
+                "Grill for 3 minutes on each side or until desired doneness",
+                "Add cheese and remove burger when melted",
+                "Add desired toppings"
+            ]
+        },
+        "RECIPE2": {
+            "id": "RECIPE2",
+            "name": "Krazy Keto Kabbage",
+            "people": {
+                "PERSON0": "contributor",
+                "PERSON1": "owner",
+                "PERSON2": "subscriber"
+            },
+            "time": {
+                "prep": "10 minutes",
+                "cook": "20 minutes"
+            },
+            "ingredients": [
+                {
+                    "name": "Cabbage",
+                    "amount": "1 head"
+                },
+                {
+                    "name": "Lemon",
+                    "amount": null
+                },
+                {
+                    "name": "Lime",
+                    "amount": null
+                }
+            ],
+            "instructions": [
+                "Shred the kabbage",
+                "Toss kabbage in lemon and lime juice",
+                "Bake for 20 minutes"
+            ]
         }
     },
     "plans": {
@@ -90,6 +189,9 @@
                 "PERSON1": "contributor",
                 "PERSON2": "subscriber"
             },
+            "groups": {
+                "GROUP0": "true"
+            },
             "days": {
                 "0": "RECIPE0",
                 "1": null,
@@ -99,7 +201,13 @@
                 "5": null,
                 "6": null,
                 "7": null
+            },
+            "proposals": {
+                "0": {
+                    "PERSON0": "RECIPE0",
+                    "PERSON1": "RECIPE1"
+                }
             }
         }
-    }
+    },
 }

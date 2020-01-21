@@ -1,5 +1,5 @@
 export enum RootCollections {
-    PROFILES = "profiles",
+    PEOPLE = "people",
     GROUPS = "groups"
 }
 
