@@ -12,6 +12,7 @@
     "@types/jest": "^24.0.24",
     "jest": "^24.9.0",
     "nodemon": "^2.0.2",
+    "ts-node": "^8.6.2",
     "typescript": "^3.7.4"
   },
   "scripts": {
