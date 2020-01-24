@@ -16,11 +16,15 @@ export interface NewGroupRequest {
     name: string
 }
 
-export interface NewRecipeRequest extends EditedRecipeRequest {
+export interface NewRecipeRequest {
     id: string // new recipe document id
+    name: string
+    ingredients: Array<Ingredient>
+    instructions: Array<Instruction>
 }
 
 export interface EditedRecipeRequest {
+    id: string
     name: string
     authors: Array<Author>
     ingredients: Array<Ingredient>

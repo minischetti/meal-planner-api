@@ -1,6 +1,6 @@
 import express, {Request, Response} from "express";
 import {GroupUserRole, RecipeUserRole} from "./models/roles";
-import {Profile, Recipe, Group, SourceInvite as SenderInvite, ReceivingInvite as RecipientInvite, GroupUser, Plan, PlanDay} from "./models/data-types";
+import {Profile, Recipe, Group, SourceInvite as SenderInvite, ReceivingInvite as RecipientInvite, GroupUser, Plan, PlanDay, Author} from "./models/data-types";
 import {NewPersonAccountRequest, NewPersonProfileRequest, NewRecipeRequest, NewGroupRequest, GroupInviteResponseRequest, AddRecipeToGroupRequest, NewMealPlanRequest, EditedRecipeRequest} from "./models/request-bodies"
 import {SubCollections, RootCollections} from "./firebase/collections";
 
@@ -83,7 +83,7 @@ server.route('/api/login').post((request: Request, response: any) => {
 
     firebase.auth().signInWithEmailAndPassword(email, password)
         .then((firebaseResponse: any) => {
-            response.status(200).send(`Signed in`);
+            response.status(200).send(`Successfully signed in`);
         })
         .catch((error: firebase.FirebaseError) => {
             response.status(400).send(`Error signing in: ${error.message}`);
@@ -96,7 +96,7 @@ server.route('/api/login').post((request: Request, response: any) => {
 server.route('/api/logout').post((request: Request, response: any) => {
     firebase.auth().signOut()
     .then((firebaseResponse: any) => {
-        response.status(200).send("Logged out")
+        response.status(200).send("Successfully logged out")
     })
     .catch((error: firebase.FirebaseError) => {
         response.status(400).send(`Error logging out: ${error.message}`);
@@ -127,17 +127,28 @@ server.route('/api/people/:person/').get((request, response) => {
  */
 server.route('/api/people/:person/recipes').get((request, response) => {
     const person = request.params['person'];
-
-    // const recipeDocuments = database.collection(RootCollections.PEOPLE).doc(person).collection(SubCollections.RECIPES).where("role", "==", "owner");
     const recipeDocuments = database.collectionGroup(SubCollections.MEMBERS).where("id", "==", person);
 
     recipeDocuments.get()
         .then((snapshot: firebase.firestore.QuerySnapshot) => {
             if (snapshot.docs.length) {
-                const recipes = snapshot.docs.map((document: any) => document.data());
-                response.status(200).send(recipes);
+                const recipeDocuments = snapshot.docs.map((document: firebase.firestore.DocumentSnapshot) => document.ref.parent.parent.get());
+
+                Promise.all([...recipeDocuments])
+                        .then((documents: any) => {
+                            const recipes = documents.map((document: firebase.firestore.DocumentSnapshot) => {
+                                if (document.exists) {
+                                    return document.data();
+                                }
+                            });
+
+                            response.status(200).send(recipes);
+                        })
+                        .catch(error => {
+                            response.status(400).send(`Error retrieving recipes: ${error.message}`);
+                        });
             } else {
-                response.status(404).send(`Person ${person} does not have any recipes`);
+                response.status(404).send(`No recipes found for person ${person}`);
             }
         })
         .catch((error: firebase.FirebaseError) => {
@@ -146,75 +157,91 @@ server.route('/api/people/:person/recipes').get((request, response) => {
 });
 
 
-/**
- * Gets a recipe from a person.
- */
-server.route('/api/people/:person/recipes/:recipe').get((request, response) => {
-    const person = request.params['person'];
-    const recipe = request.params['recipe'];
+// /**
+//  * Gets a recipe from a person.
+//  */
+// server.route('/api/people/:person/recipes/:recipe').get((request, response) => {
+//     const person = request.params['person'];
+//     const recipe = request.params['recipe'];
 
-    database.collection(RootCollections.PEOPLE).doc(person).collection(SubCollections.RECIPES).doc(recipe).get()
-        .then((document: any) => {
-            if (document.exists) {
-                response.status(200).send(document.data());
-            } else {
-                response.status(404).send("Recipe not found")
-            }
-        })
-        .catch((error: firebase.FirebaseError) => {
-            response.status(400).send(`Error getting recipe ${recipe} from person ${person}: ${error.message}`);
-        });
-});
+//     database.collection(RootCollections.PEOPLE).doc(person).collection(SubCollections.RECIPES).doc(recipe).get()
+//         .then((document: any) => {
+//             if (document.exists) {
+//                 response.status(200).send(document.data());
+//             } else {
+//                 response.status(404).send("Recipe not found")
+//             }
+//         })
+//         .catch((error: firebase.FirebaseError) => {
+//             response.status(400).send(`Error getting recipe ${recipe} from person ${person}: ${error.message}`);
+//         });
+// });
 
 /**
  * Adds a new recipe to a person.
  */
 server.route('/api/people/:person/recipes').post((request, response) => {
     const person = request.params['person'];
-    const {name, authors, ingredients, instructions} = request.body;
+    const {name, ingredients, instructions} = request.body;
+    const members = [{id: person, role: RecipeUserRole.OWNER}];
 
-    const newRecipeDocument = database.collection(RootCollections.PEOPLE).doc(person).collection(SubCollections.RECIPES).doc();
+    const newRecipeDocument = database.collection(RootCollections.RECIPES).doc();
 
     const newRecipe: NewRecipeRequest = {
         id: newRecipeDocument.id,
         name,
-        authors,
         ingredients,
         instructions
     };
 
-    newRecipeDocument.set(newRecipe)
-        .then((firebaseResponse: any) => {
-            response.status(200).send("Created recipe");
+    // Initiate a batch operation
+    const batch = database.batch();
+
+    // Queue the creation of a new group
+    batch.set(newRecipeDocument, newRecipe);
+
+    // Queue the addition of each member to the group
+    if (members.length) {
+        members.forEach((author: Author) => {
+            batch.set(newRecipeDocument.collection(SubCollections.MEMBERS).doc(author.id), author);
+        });
+    }
+
+    // Commit the batch operation for group creation and member additions
+    batch.commit()
+        .then(() => {
+            response.status(200).send(`Recipe ${newRecipeDocument.id} successfully created`);
         })
-        .catch((error: firebase.FirebaseError) => {
-            response.status(400).send(`Error adding recipe to person ${person}: ${error.message}`);
+        .catch((error: firebase.firestore.FirestoreError) => {
+            response.status(400).send(`Error creating new recipe: ${error.message}`);
         });
 });
 
 /**
  * Edits an existing recipe.
+ *
+ * TODO: Separate endpoints for individual editing of name, authors, ingredients and instructions
  */
-server.route('/api/people/:person/recipes/:recipe').put((request, response) => {
-    const person = request.params['person'];
-    const recipe = request.params['recipe'];
-    const {name, authors, ingredients, instructions} = request.body;
+// server.route('/api/people/:person/recipes/:recipe').put((request, response) => {
+//     const person = request.params['person'];
+//     const recipe = request.params['recipe'];
+//     const {name, authors, ingredients, instructions} = request.body;
 
-    const editedRecipe: EditedRecipeRequest = {
-        name,
-        authors,
-        ingredients,
-        instructions
-    };
+//     const editedRecipe: EditedRecipeRequest = {
+//         name,
+//         authors,
+//         ingredients,
+//         instructions
+//     };
 
-    database.collection(RootCollections.PEOPLE).doc(person).collection(SubCollections.RECIPES).doc(recipe).set(editedRecipe)
-        .then((firebaseResponse: any) => {
-            response.status(200).send(firebaseResponse);
-        })
-        .catch((error: firebase.FirebaseError) => {
-            response.status(400).send(`Error editing recipe ${recipe}: ${error.message}`);
-        });
-});
+//     database.collection(RootCollections.PEOPLE).doc(person).collection(SubCollections.RECIPES).doc(recipe).set(editedRecipe)
+//         .then((firebaseResponse: any) => {
+//             response.status(200).send(firebaseResponse);
+//         })
+//         .catch((error: firebase.FirebaseError) => {
+//             response.status(400).send(`Error editing recipe ${recipe}: ${error.message}`);
+//         });
+// });
 
 /**
  * Deletes an existing recipe.
@@ -223,11 +250,24 @@ server.route('/api/people/:person/recipes/:recipe').delete((request, response) =
     const person = request.params['person'];
     const recipe = request.params['recipe'];
 
-    database.collection(RootCollections.PEOPLE).doc(person).collection(SubCollections.RECIPES).doc(recipe).delete()
-        .then((firebaseResponse: any) => {
+    const recipeDocumentFromPerson = database.collection(RootCollections.PEOPLE).doc(person).collection(SubCollections.RECIPES).doc(recipe);
+    const recipeDocumentFromGlobalCollection = database.collection(RootCollections.RECIPES).doc(recipe);
+
+    // Initiate a batch operation
+    const batch = database.batch();
+
+    // Queue the deletion of a person's recipe
+    batch.delete(recipeDocumentFromPerson);
+
+    // Queue the deletion of the recipe from the global recipe collection
+    batch.delete(recipeDocumentFromGlobalCollection);
+
+    // Commit the batch operation for group creation and member addition
+    batch.commit()
+        .then(() => {
             response.status(200).send(`Recipe ${recipe} successfully deleted`);
         })
-        .catch((error: firebase.FirebaseError) => {
+        .catch((error: firebase.firestore.FirestoreError) => {
             response.status(400).send(`Error deleting recipe ${recipe} from person ${person}: ${error.message}`);
         });
 });
@@ -236,7 +276,7 @@ server.route('/api/people/:person/recipes/:recipe').delete((request, response) =
  * Creates a new group.
  */
 server.route('/api/groups').post((request, response) => {
-    const {name, members} = request.body;
+    const {name, owner} = request.body;
 
     const groupDocument = database.collection(RootCollections.GROUPS).doc();
     const groupDocumentId = groupDocument.id;
@@ -246,20 +286,21 @@ server.route('/api/groups').post((request, response) => {
         name
     };
 
+    const newOwner: GroupUser = {
+        id: owner,
+        role: GroupUserRole.OWNER
+    };
+
     // Initiate a batch operation
     const batch = database.batch();
 
     // Queue the creation of a new group
     batch.set(groupDocument, newGroup);
 
-    // Queue the addition of each member to the group
-    if (members.length) {
-        members.forEach((member: GroupUser) => {
-            batch.set(groupDocument.collection(SubCollections.MEMBERS).doc(member.id), member);
-        });
-    }
+    // Queue the addition of the group owner as a member
+    batch.set(groupDocument.collection(SubCollections.MEMBERS).doc(owner), newOwner);
 
-    // Commit the batch operation for group creation and member additions
+    // Commit the batch operation for group creation and member addition
     batch.commit()
         .then(() => {
             response.status(200).send(`Group ${groupDocumentId} successfully created`);
@@ -423,8 +464,7 @@ server.route('/api/people/:person/invites/:invite').post((request, response) => 
 server.route('/api/groups/:group/recipes/:recipe').get((request, response) => {
     const group = request.params['group'];
     const recipe = request.params['recipe'];
-
-    const recipeReference = database.collection(RootCollections.GROUPS).doc(group).collection(SubCollections.RECIPES).doc(recipe);
+    const recipeReference = database.collection(RootCollections.RECIPES).doc(recipe);
 
     recipeReference.get()
         .then(document => {
