@@ -46,12 +46,12 @@ server.route('/api/people/accounts').post((request: Request, response: any) => {
     const {email, password} = request.body;
 
     firebase.auth().createUserWithEmailAndPassword(email, password)
-    .then((firebaseResponse: any) => {
-        response.status(200).send(firebaseResponse);
-    })
-    .catch((error: any) => {
-        response.status(400).send(error);
-      });
+        .then((firebaseResponse: any) => {
+            response.status(200).send(firebaseResponse);
+        })
+        .catch((error: any) => {
+            response.status(400).send(error);
+        });
 });
 
 /**
@@ -110,16 +110,16 @@ server.route('/api/people/:person/').get((request, response) => {
     const person = request.params['person'];
 
     database.collection(RootCollections.PEOPLE).doc(person).get()
-    .then((document: any) => {
-        if (document.exists) {
-            response.status(200).send(document.data());
-        } else {
-            response.status(404).send(`Person ${person} does not exist`);
-        }
-    })
-    .catch((error: firebase.FirebaseError) => {
-        response.status(400).send(`Error getting person ${person}: ${error.message}`);
-    });
+        .then((document: any) => {
+            if (document.exists) {
+                response.status(200).send(document.data());
+            } else {
+                response.status(404).send(`Person ${person} does not exist`);
+            }
+        })
+        .catch((error: firebase.FirebaseError) => {
+            response.status(400).send(`Error getting person ${person}: ${error.message}`);
+        });
 });
 
 /**
@@ -127,32 +127,68 @@ server.route('/api/people/:person/').get((request, response) => {
  */
 server.route('/api/people/:person/recipes').get((request, response) => {
     const person = request.params['person'];
-    const recipeDocuments = database.collectionGroup(SubCollections.MEMBERS).where("id", "==", person);
 
-    recipeDocuments.get()
+    database.collection(RootCollections.PEOPLE).doc(person).collection(SubCollections.RECIPES).get()
         .then((snapshot: firebase.firestore.QuerySnapshot) => {
             if (snapshot.docs.length) {
-                const recipeDocuments = snapshot.docs.map((document: firebase.firestore.DocumentSnapshot) => document.ref.parent.parent.get());
+                const recipes = snapshot.docs.map((recipe: firebase.firestore.QueryDocumentSnapshot) => recipe.data());
+
+                const recipeDocuments = recipes.map((recipe: any) => database.collection(SubCollections.RECIPES).doc(recipe.id).get());
 
                 Promise.all([...recipeDocuments])
-                        .then((documents: any) => {
-                            const recipes = documents.map((document: firebase.firestore.DocumentSnapshot) => {
-                                if (document.exists) {
-                                    return document.data();
-                                }
-                            });
-
-                            response.status(200).send(recipes);
-                        })
-                        .catch(error => {
-                            response.status(400).send(`Error retrieving recipes: ${error.message}`);
+                    .then((documents: any) => {
+                        const recipes = documents.map((document: firebase.firestore.DocumentSnapshot) => {
+                            if (document.exists) {
+                                return document.data();
+                            }
                         });
+
+                        response.status(200).send(recipes);
+                    })
             } else {
-                response.status(404).send(`No recipes found for person ${person}`);
+                response.status(404).send(`Person ${person} does not have any recipes`);
             }
         })
         .catch((error: firebase.FirebaseError) => {
-            response.status(400).send(`Error getting recipes from person ${person}: ${error.message}`);
+            response.status(400).send(`Error getting recipes from ${person}: ${error.message}`);
+        });
+});
+
+/**
+ * Gets all recipes.
+ */
+server.route('/api/recipes/').get((request, response) => {
+    database.collection(RootCollections.RECIPES).get()
+        .then((snapshot: any) => {
+            if (snapshot.docs.length) {
+                const recipes = snapshot.docs.map((recipe: firebase.firestore.QueryDocumentSnapshot) => recipe.data());
+
+                response.status(200).send(recipes);
+            } else {
+                response.status(404).send("Recipes not found")
+            }
+        })
+        .catch((error: firebase.FirebaseError) => {
+            response.status(400).send(`Error getting recipes: ${error.message}`);
+        });
+});
+
+/**
+ * Gets a single recipe.
+ */
+server.route('/api/recipes/:recipe/').get((request, response) => {
+    const recipe = request.params['recipe'];
+
+    database.collection(RootCollections.RECIPES).doc(recipe).get()
+        .then((document: any) => {
+            if (document.exists) {
+                response.status(200).send(document.data());
+            } else {
+                response.status(404).send("Recipe not found")
+            }
+        })
+        .catch((error: firebase.FirebaseError) => {
+            response.status(400).send(`Error getting recipe ${recipe}: ${error.message}`);
         });
 });
 
@@ -164,7 +200,7 @@ server.route('/api/people/:person/recipes').get((request, response) => {
 //     const person = request.params['person'];
 //     const recipe = request.params['recipe'];
 
-//     database.collection(RootCollections.PEOPLE).doc(person).collection(SubCollections.RECIPES).doc(recipe).get()
+//     database.collection(RootCollections.RECIPES).doc(recipe).get()
 //         .then((document: any) => {
 //             if (document.exists) {
 //                 response.status(200).send(document.data());
@@ -203,7 +239,7 @@ server.route('/api/people/:person/recipes').post((request, response) => {
     // Queue the addition of each member to the group
     if (members.length) {
         members.forEach((author: Author) => {
-            batch.set(newRecipeDocument.collection(SubCollections.MEMBERS).doc(author.id), author);
+            batch.set(newRecipeDocument.collection(SubCollections.RECIPE_MEMBERS).doc(author.id), author);
         });
     }
 
@@ -298,7 +334,7 @@ server.route('/api/groups').post((request, response) => {
     batch.set(groupDocument, newGroup);
 
     // Queue the addition of the group owner as a member
-    batch.set(groupDocument.collection(SubCollections.MEMBERS).doc(owner), newOwner);
+    batch.set(groupDocument.collection(SubCollections.GROUP_MEMBERS).doc(owner), newOwner);
 
     // Commit the batch operation for group creation and member addition
     batch.commit()
@@ -428,7 +464,7 @@ server.route('/api/people/:person/invites/:invite').post((request, response) => 
     }
 
     const groupInviteCollection = database.collection(RootCollections.GROUPS).doc(group).collection(SubCollections.INVITES);
-    const groupMemberCollection = database.collection(RootCollections.GROUPS).doc(group).collection(SubCollections.MEMBERS);
+    const groupMemberCollection = database.collection(RootCollections.GROUPS).doc(group).collection(SubCollections.GROUP_MEMBERS);
     const groupInviteDocument = groupInviteCollection.doc(invite);
 
     const recipientInviteCollection = database.collection(RootCollections.PEOPLE).doc(person).collection(SubCollections.INVITES);
@@ -458,25 +494,26 @@ server.route('/api/people/:person/invites/:invite').post((request, response) => 
         });
 });
 
-/**
- * Gets a recipe from a group.
- */
-server.route('/api/groups/:group/recipes/:recipe').get((request, response) => {
-    const group = request.params['group'];
-    const recipe = request.params['recipe'];
-    const recipeReference = database.collection(RootCollections.RECIPES).doc(recipe);
+// /**
+//  * Gets a recipe from a group.
+//  */
+// server.route('/api/groups/:group/recipes/:recipe').get((request, response) => {
+//     const group = request.params['group'];
+//     const recipe = request.params['recipe'];
+//     const recipeReference = database.collection(RootCollections.RECIPES).doc(recipe);
 
-    recipeReference.get()
-        .then(document => {
-            if (document.exists) {
-                response.status(200).send(document.data());
-            } else {
-                response.status(404).send(`Recipe ${recipe} does not exist in group ${group}`)
-            }
-        }).catch(error => {
-            response.status(400).send(`Error retrieving recipe ${recipe} from group ${group}`);
-        });
-});
+//     recipeReference.get()
+//         .then(document => {
+//             if (document.exists) {
+//                 response.status(200).send(document.data());
+//             } else {
+//                 response.status(404).send(`Recipe ${recipe} does not exist in group ${group}`)
+//             }
+//         })
+//         .catch(error => {
+//             response.status(400).send(`Error retrieving recipe ${recipe} from group ${group}`);
+//         });
+// });
 
 /**
  * Gets all recipes from a group.
@@ -543,7 +580,8 @@ server.route('/api/groups/:group/recipes/:recipe').delete((request, response) =>
     groupRecipe.delete()
         .then(result => {
             response.status(200).send(`Recipe ${groupRecipe.id} unlinked from group ${group}`);
-        }).catch(error => {
+        })
+        .catch(error => {
             response.status(400).send(`Failure unlinking recipe ${groupRecipe.id} from group ${group}`);
         });
 });
@@ -562,7 +600,8 @@ server.route('/api/people/:person/plans/:plan').get((request, response) => {
             } else {
                 response.status(404).send(`Person ${person} does not contain plan ${plan}`)
             }
-        }).catch(error => {
+        })
+        .catch(error => {
             response.status(400).send(`Error retrieving plan ${plan} from person ${person}`);
         });
 });
