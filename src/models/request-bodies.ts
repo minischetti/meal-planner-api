@@ -47,3 +47,23 @@ export interface NewMealPlanRequest {
     id: string
     days: Array<PlanDay>
 }
+
+export interface RecipeNameUpdateRequest {
+    personId: string,
+    name: string
+}
+
+export interface RecipeAuthorUpdateRequest {
+    personId: string,
+    authors: Array<string>
+}
+
+export interface RecipeIngredientUpdateRequest {
+    personId: string,
+    ingredients: Array<Ingredient>
+}
+
+export interface RecipeInstructionUpdateRequest {
+    personId: string,
+    instructions: Array<Instruction>
+}

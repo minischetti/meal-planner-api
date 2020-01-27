@@ -1,8 +1,9 @@
-import express, {Request, Response} from "express";
+import express, {Request, Response, response} from "express";
 import {GroupUserRole, RecipeUserRole} from "./models/roles";
-import {Profile, Recipe, Group, SourceInvite as SenderInvite, ReceivingInvite as RecipientInvite, GroupUser, Plan, PlanDay, Author} from "./models/data-types";
+import {Profile, Recipe, Group, SourceInvite as SenderInvite, ReceivingInvite as RecipientInvite, GroupUser, Plan, PlanDay, Author, Instruction, Ingredient} from "./models/data-types";
 import {NewPersonAccountRequest, NewPersonProfileRequest, NewRecipeRequest, NewGroupRequest, GroupInviteResponseRequest, AddRecipeToGroupRequest, NewMealPlanRequest, EditedRecipeRequest} from "./models/request-bodies"
 import {SubCollections, RootCollections} from "./firebase/collections";
+import {MessageFactory, MessageFactoryPrimaryDomain, MessageFactorySecondaryDomain, MessageFactoryOperation, MessageFactoryResult} from "./utilities/MessageFactory"
 
 // Firebase App (the core Firebase SDK) is always required and
 // must be listed before other Firebase SDKs
@@ -254,30 +255,171 @@ server.route('/api/people/:person/recipes').post((request, response) => {
 });
 
 /**
- * Edits an existing recipe.
+ * Edits a recipe's name.
  *
- * TODO: Separate endpoints for individual editing of name, authors, ingredients and instructions
  */
-// server.route('/api/people/:person/recipes/:recipe').put((request, response) => {
-//     const person = request.params['person'];
-//     const recipe = request.params['recipe'];
-//     const {name, authors, ingredients, instructions} = request.body;
+server.route('/api/recipes/:recipe/name').put((request, response) => {
+    const {name} = request.body;
 
-//     const editedRecipe: EditedRecipeRequest = {
-//         name,
-//         authors,
-//         ingredients,
-//         instructions
-//     };
+    const newRecipeName = {
+        name: name as string
+    }
 
-//     database.collection(RootCollections.PEOPLE).doc(person).collection(SubCollections.RECIPES).doc(recipe).set(editedRecipe)
-//         .then((firebaseResponse: any) => {
-//             response.status(200).send(firebaseResponse);
-//         })
-//         .catch((error: firebase.FirebaseError) => {
-//             response.status(400).send(`Error editing recipe ${recipe}: ${error.message}`);
-//         });
-// });
+    updateRecipe(request, response, newRecipeName);
+});
+
+/**
+ * Edits a recipe's authors.
+ *
+ */
+server.route('/api/recipes/:recipe/authors').put((request, response) => {
+    const {authors} = request.body;
+
+    const newRecipeAuthors = {
+        authors: authors as Array<Author>
+    }
+
+    updateRecipe(request, response, newRecipeAuthors);
+});
+
+/**
+ * Edits a recipe's instructions.
+ *
+ */
+server.route('/api/recipes/:recipe/instructions').put((request, response) => {
+    const {instructions} = request.body;
+
+    const newRecipeInstructions = {
+        instructions: instructions as Array<Instruction>
+    }
+
+    updateRecipe(request, response, newRecipeInstructions);
+});
+
+
+/**
+ * Edits a recipe's ingredients.
+ *
+ */
+server.route('/api/recipes/:recipe/ingredients').put((request, response) => {
+    const {ingredients} = request.body;
+
+    const newRecipeIngredients = {
+        ingredients: ingredients as Array<Ingredient>
+    }
+
+    updateRecipe(request, response, newRecipeIngredients);
+});
+
+/**
+ * Determines if a user can edit a recipe based on their role.
+ *
+ * @param {RecipeUserRole} memberRole the member's role
+ * @returns {boolean} whether or not the member can edit a recipe
+ */
+function canEditRecipe(memberRole: RecipeUserRole) {
+    return memberRole === RecipeUserRole.OWNER || memberRole === RecipeUserRole.CONTRIBUTOR;
+}
+
+/**
+ * Updates a recipe with the given data.
+ * @param request the request
+ * @param response the response
+ * @param newData the new recipe data
+ */
+function updateRecipe(request: Request, response: Response, newData: any) {
+    const recipe = request.params['recipe'];
+    const {personId} = request.body;
+
+    if (!personId || !newData) {
+        const message = new MessageFactory()
+            .setPrimaryDomain(MessageFactoryPrimaryDomain.RECIPE)
+            .setResult(MessageFactoryResult.BAD_REQUEST)
+
+        response.status(400).send(message);
+    }
+
+    const recipeDocument = database.collection(RootCollections.RECIPES).doc(recipe);
+
+    recipeDocument.get()
+        .then(result => {
+            if (result.exists) {
+                const recipeMemberCollection = recipeDocument.collection(SubCollections.RECIPE_MEMBERS);
+                const recipeMemberDocument = recipeMemberCollection.doc(personId);
+
+                recipeMemberDocument.get()
+                    .then(result => {
+                        const memberDetails = result.data();
+                        const memberRole = memberDetails.role;
+
+                        if (canEditRecipe(memberRole)) {
+                            if (newData.authors) {
+                                if (!newData.authors.length) {
+                                    const message = new MessageFactory()
+                                        .setPrimaryDomain(MessageFactoryPrimaryDomain.RECIPE)
+                                        .setSecondaryDomain(MessageFactorySecondaryDomain.AUTHORS)
+                                        .setResult(MessageFactoryResult.BAD_REQUEST)
+
+                                    response.send(400).send(message);
+                                } else {
+                                    // Initiate a batch operation
+                                    const batch = database.batch();
+
+                                    // Map each author to their respective document and queue an update
+                                    newData.authors.map((author: Author) => {
+                                        const authorDocument = recipeMemberCollection.doc(author.id);
+                                        batch.set(authorDocument, author);
+                                    });
+
+                                    // Commit the batch operation
+                                    batch.commit()
+                                        .then(() => {
+                                            const message = new MessageFactory()
+                                                .setPrimaryDomain(MessageFactoryPrimaryDomain.RECIPE)
+                                                .setSecondaryDomain(MessageFactorySecondaryDomain.AUTHORS)
+                                                .setOperation(MessageFactoryOperation.UPDATE)
+                                                .setResult(MessageFactoryResult.SUCCESS);
+
+                                            response.status(200).send(message);
+                                        })
+                                }
+                            } else {
+                                recipeDocument.update(newData)
+                                    .then(() => {
+                                        const message = new MessageFactory()
+                                            .setPrimaryDomain(MessageFactoryPrimaryDomain.RECIPE)
+                                            .setSecondaryDomain(MessageFactorySecondaryDomain.AUTHORS)
+                                            .setOperation(MessageFactoryOperation.UPDATE)
+                                            .setResult(MessageFactoryResult.SUCCESS);
+
+                                        response.status(200).send(message);
+                                    })
+                            }
+
+                        } else {
+                            const message = new MessageFactory()
+                                .setPrimaryDomain(MessageFactoryPrimaryDomain.RECIPE)
+                                .setSecondaryDomain(MessageFactorySecondaryDomain.AUTHORS)
+                                .setOperation(MessageFactoryOperation.UPDATE)
+                                .setResult(MessageFactoryResult.PERMISSION_DENY);
+
+                            response.status(403).send(message);
+                        }
+                    });
+            } else {
+                response.status(404).send(`Recipe ${recipe} doesn't exist`);
+            }
+        }).catch((error: firebase.firestore.FirestoreError) => {
+            const message = new MessageFactory()
+                .setPrimaryDomain(MessageFactoryPrimaryDomain.RECIPE)
+                .setSecondaryDomain(MessageFactorySecondaryDomain.AUTHORS)
+                .setOperation(MessageFactoryOperation.UPDATE)
+                .setResult(MessageFactoryResult.ERROR)
+                .setErrorMessage(error.message);
+
+            response.status(400).send(message);
+        });
+}
 
 /**
  * Deletes an existing recipe.
@@ -301,10 +443,21 @@ server.route('/api/people/:person/recipes/:recipe').delete((request, response) =
     // Commit the batch operation for group creation and member addition
     batch.commit()
         .then(() => {
-            response.status(200).send(`Recipe ${recipe} successfully deleted`);
+            const message = new MessageFactory()
+                .setPrimaryDomain(MessageFactoryPrimaryDomain.RECIPE)
+                .setOperation(MessageFactoryOperation.DELETE)
+                .setResult(MessageFactoryResult.SUCCESS);
+
+            response.status(200).send(message);
         })
         .catch((error: firebase.firestore.FirestoreError) => {
-            response.status(400).send(`Error deleting recipe ${recipe} from person ${person}: ${error.message}`);
+            const message = new MessageFactory()
+                .setPrimaryDomain(MessageFactoryPrimaryDomain.RECIPE)
+                .setOperation(MessageFactoryOperation.DELETE)
+                .setResult(MessageFactoryResult.ERROR)
+                .setErrorMessage(error.message);
+
+            response.status(400).send(message);
         });
 });
 
