@@ -8,11 +8,11 @@ export interface Profile {
     activeMealPlan: string
 }
 
-export interface SourceInvite extends ReceivingInvite {
+export interface SenderInvite extends RecipientInvite {
     recipient: string // the recipient's user id
 }
 
-export interface ReceivingInvite {
+export interface RecipientInvite {
     inviteId: string
     sender: string // the sender's user id
     group: string // the group id
@@ -25,7 +25,7 @@ export interface Group {
     name: string
     members: Array<string>
     recipes: Array<string>
-    invites: Array<SourceInvite>
+    invites: Array<SenderInvite>
 }
 
 export interface GroupUser {
