@@ -100,7 +100,12 @@ export function updateRecipe(request: any, response: any, newData: any) {
                         }
                     });
             } else {
-                return response.status(404).send(`Recipe ${recipe} doesn't exist`);
+                const message = new MessageFactory()
+                    .setPrimaryDomain(MessageFactoryPrimaryDomain.RECIPE)
+                    .setOperation(MessageFactoryOperation.GET)
+                    .setResult(MessageFactoryResult.EMPTY);
+
+                return response.status(404).send(message);
             }
         }).catch((error: firebase.firestore.FirestoreError) => {
             const message = new MessageFactory()
@@ -108,7 +113,7 @@ export function updateRecipe(request: any, response: any, newData: any) {
                 .setSecondaryDomain(MessageFactorySecondaryDomain.AUTHORS)
                 .setOperation(MessageFactoryOperation.UPDATE)
                 .setResult(MessageFactoryResult.ERROR)
-                .setErrorMessage(error.message);
+                .setMessage(error.message);
 
             return response.status(400).send(message);
         });

@@ -1,5 +1,6 @@
 import {server, database} from "../../index";
 import {RootCollections, SubCollections} from "../../firebase/collections";
+import {getDocumentsFromSnapshot} from "../../firebase/helpers";
 import {MessageFactory, MessageFactoryPrimaryDomain, MessageFactorySecondaryDomain, MessageFactoryOperation, MessageFactoryResult} from "../../utilities/MessageFactory";
 import {RecipeValidationEngine} from "../../validation/RecipeValidationEngine";
 import {Author, Instruction, Ingredient} from "../../models/index";
@@ -10,13 +11,18 @@ import {updateRecipe} from "./helpers";
  */
 server.route('/api/recipes/').get((request, response) => {
     database.collection(RootCollections.RECIPES).get()
-        .then((snapshot: any) => {
+        .then((snapshot: firebase.firestore.QuerySnapshot) => {
             if (snapshot.docs.length) {
-                const recipes = snapshot.docs.map((recipe: firebase.firestore.QueryDocumentSnapshot) => recipe.data());
+                const recipes = getDocumentsFromSnapshot(snapshot.docs);
 
                 response.status(200).send(recipes);
             } else {
-                response.status(404).send("Recipes not found")
+                const message = new MessageFactory()
+                    .setPrimaryDomain(MessageFactoryPrimaryDomain.PLAN)
+                    .setOperation(MessageFactoryOperation.GET)
+                    .setResult(MessageFactoryResult.EMPTY);
+
+                response.status(404).send(message);
             }
         })
         .catch((error: firebase.FirebaseError) => {
@@ -31,7 +37,7 @@ server.route('/api/recipes/:recipe/').get((request, response) => {
     const recipe = request.params['recipe'];
 
     database.collection(RootCollections.RECIPES).doc(recipe).get()
-        .then((document: any) => {
+        .then((document: firebase.firestore.QueryDocumentSnapshot) => {
             if (document.exists) {
                 response.status(200).send(document.data());
             } else {
@@ -52,7 +58,7 @@ server.route('/api/people/:person/recipes').get((request, response) => {
     database.collection(RootCollections.PEOPLE).doc(person).collection(SubCollections.RECIPES).get()
         .then((snapshot: firebase.firestore.QuerySnapshot) => {
             if (snapshot.docs.length) {
-                const recipes = snapshot.docs.map((recipe: firebase.firestore.QueryDocumentSnapshot) => recipe.data());
+                const recipes = getDocumentsFromSnapshot(snapshot.docs);
 
                 const recipeDocuments = recipes.map((recipe: any) => database.collection(SubCollections.RECIPES).doc(recipe.id).get());
 
@@ -199,7 +205,7 @@ server.route('/api/people/:person/recipes/:recipe').delete((request, response) =
                 .setPrimaryDomain(MessageFactoryPrimaryDomain.RECIPE)
                 .setOperation(MessageFactoryOperation.DELETE)
                 .setResult(MessageFactoryResult.ERROR)
-                .setErrorMessage(error.message);
+                .setMessage(error.message);
 
             response.status(400).send(message);
         });

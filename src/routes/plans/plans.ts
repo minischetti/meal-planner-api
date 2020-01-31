@@ -1,8 +1,41 @@
 import {server, database} from "../../index";
 import {RootCollections, SubCollections} from "../../firebase/collections";
 import {MessageFactory, MessageFactoryPrimaryDomain, MessageFactorySecondaryDomain, MessageFactoryOperation, MessageFactoryResult} from "../../utilities/MessageFactory";
-import {RecipeValidationEngine} from "../../validation/RecipeValidationEngine";
 import {NewMealPlanRequest, PlanDay} from "../../models/index";
+import {getDocumentsFromSnapshot} from "../../../src/firebase/helpers";
+
+/**
+ * Gets a personal meal plan.
+ */
+server.route('/api/people/:person/plans/:plan').get((request, response) => {
+    const person = request.params['person'];
+    const plan = request.params['plan'];
+
+    database.collection(RootCollections.PEOPLE).doc(person).collection(SubCollections.PLANS).doc(plan).get()
+        .then(document => {
+            if (document.exists) {
+                response.status(200).send(document.data());
+            } else {
+                const message = new MessageFactory()
+                    .setPrimaryDomain(MessageFactoryPrimaryDomain.PEOPLE)
+                    .setSecondaryDomain(MessageFactorySecondaryDomain.PLANS)
+                    .setOperation(MessageFactoryOperation.GET)
+                    .setResult(MessageFactoryResult.EMPTY)
+
+                response.status(404).send(message);
+            }
+        })
+        .catch((error: firebase.firestore.FirestoreError) => {
+            const message = new MessageFactory()
+                .setPrimaryDomain(MessageFactoryPrimaryDomain.PEOPLE)
+                .setSecondaryDomain(MessageFactorySecondaryDomain.PLANS)
+                .setOperation(MessageFactoryOperation.GET)
+                .setResult(MessageFactoryResult.ERROR)
+                .setMessage(error.message);
+
+            response.status(400).send(message);
+        });
+});
 
 /**
  * Gets all personal meal plans.
@@ -13,15 +46,26 @@ server.route('/api/people/:person/plans/').get((request, response) => {
     database.collection(RootCollections.PEOPLE).doc(person).collection(SubCollections.PLANS).get()
         .then((snapshot: firebase.firestore.QuerySnapshot) => {
             if (snapshot.docs.length) {
-                const plans = snapshot.docs.map((document: any) => document.data());
+                const plans = getDocumentsFromSnapshot(snapshot.docs);
+
                 response.status(200).send(plans);
             } else {
-                response.status(404).send(`Person ${person} does not have any meal plans`);
+                const message = new MessageFactory()
+                    .setPrimaryDomain(MessageFactoryPrimaryDomain.PLAN)
+                    .setOperation(MessageFactoryOperation.GET)
+                    .setResult(MessageFactoryResult.EMPTY);
+
+                response.status(404).send(message);
             }
         })
-        .catch((error: any) => {
-            console.log(error);
-            response.status(400).send(error);
+        .catch((error: firebase.firestore.FirestoreError) => {
+            const message = new MessageFactory()
+                .setPrimaryDomain(MessageFactoryPrimaryDomain.PLAN)
+                .setOperation(MessageFactoryOperation.GET)
+                .setResult(MessageFactoryResult.ERROR)
+                .setMessage(error.message);
+
+            response.status(400).send(message);
         });
 });
 
@@ -41,11 +85,22 @@ server.route('/api/people/:person/plans').post((request, response) => {
     };
 
     newMealPlanDocument.set(newMealPlan)
-        .then((firebaseResponse: any) => {
-            response.status(200).send(`New meal plan created with id: ${newMealPlanDocument.id}`);
+        .then(() => {
+            const message = new MessageFactory()
+                .setPrimaryDomain(MessageFactoryPrimaryDomain.PLAN)
+                .setOperation(MessageFactoryOperation.CREATE)
+                .setResult(MessageFactoryResult.SUCCESS);
+
+            response.status(200).send(message);
         })
-        .catch((error: any) => {
-            response.status(400).send(`Error creating meal plan: ${error}`);
+        .catch((error: firebase.firestore.FirestoreError) => {
+            const message = new MessageFactory()
+                .setPrimaryDomain(MessageFactoryPrimaryDomain.PLAN)
+                .setOperation(MessageFactoryOperation.CREATE)
+                .setResult(MessageFactoryResult.ERROR)
+                .setMessage(error.message);
+
+            response.status(400).send(message);
         });
 });
 
@@ -57,11 +112,22 @@ server.route('/api/people/:person/plans/:plan').delete((request, response) => {
     const plan = request.params['plan'];
 
     database.collection(RootCollections.PEOPLE).doc(person).collection(SubCollections.PLANS).doc(plan).delete()
-        .then((firebaseResponse: any) => {
-            response.status(200).send(`Deleted plan ${plan} from person ${person}`);
+        .then(() => {
+            const message = new MessageFactory()
+                .setPrimaryDomain(MessageFactoryPrimaryDomain.PLAN)
+                .setOperation(MessageFactoryOperation.DELETE)
+                .setResult(MessageFactoryResult.ERROR);
+
+            response.status(200).send(message);
         })
         .catch((error: any) => {
-            response.status(400).send(`{Error deleting plan ${plan} from person ${person}: ${error}`);
+            const message = new MessageFactory()
+                .setPrimaryDomain(MessageFactoryPrimaryDomain.PLAN)
+                .setOperation(MessageFactoryOperation.DELETE)
+                .setResult(MessageFactoryResult.ERROR)
+                .setMessage(error.message);
+
+            response.status(400).send(message);
         });
 });
 
@@ -83,11 +149,22 @@ server.route('/api/people/:person/plans/:plan').post((request, response) => {
     const planDayDocument = database.collection(RootCollections.PEOPLE).doc(person).collection(SubCollections.PLANS).doc(plan).collection(SubCollections.DAYS).doc(planDay.id.toString());
 
     planDayDocument.set(planDay, {merge: true})
-        .then((firebaseResponse: any) => {
-            response.status(200).send(`Recipe ${planDay.recipe} successfully linked to day ${planDayDocument.id} of plan ${plan}`);
+        .then(() => {
+            const message = new MessageFactory()
+                .setPrimaryDomain(MessageFactoryPrimaryDomain.PLAN)
+                .setOperation(MessageFactoryOperation.CREATE)
+                .setResult(MessageFactoryResult.SUCCESS);
+
+            response.status(200).send(message);
         })
-        .catch((error: any) => {
-            response.status(400).send(error);
+        .catch((error: firebase.firestore.FirestoreError) => {
+            const message = new MessageFactory()
+                .setPrimaryDomain(MessageFactoryPrimaryDomain.PLAN)
+                .setOperation(MessageFactoryOperation.CREATE)
+                .setResult(MessageFactoryResult.ERROR)
+                .setMessage(error.message);
+
+            response.status(400).send(message);
         });
 });
 
@@ -104,11 +181,22 @@ server.route('/api/people/:person/plans/:plan/:day').delete((request, response) 
     const planDayDocument = database.collection(RootCollections.PEOPLE).doc(person).collection(SubCollections.PLANS).doc(plan).collection(SubCollections.DAYS).doc(day);
 
     planDayDocument.delete()
-        .then((firebaseResponse: any) => {
-            response.status(200).send(`Recipe successfully unlinked from day ${planDayDocument.id} of plan ${plan}`);
+        .then(() => {
+            const message = new MessageFactory()
+                .setPrimaryDomain(MessageFactoryPrimaryDomain.PLAN)
+                .setOperation(MessageFactoryOperation.DELETE)
+                .setResult(MessageFactoryResult.SUCCESS);
+
+            response.status(200).send(message);
         })
-        .catch((error: any) => {
-            response.status(400).send(error);
+        .catch((error: firebase.firestore.FirestoreError) => {
+            const message = new MessageFactory()
+                .setPrimaryDomain(MessageFactoryPrimaryDomain.PLAN)
+                .setOperation(MessageFactoryOperation.CREATE)
+                .setResult(MessageFactoryResult.SUCCESS)
+                .setMessage(error.message);
+
+            response.status(400).send(message);
         });
 });
 
@@ -127,12 +215,24 @@ server.route('/api/people/:person/plans/:plan/').post((request, response) => {
             .then(result => {
                 if (result.exists) {
                     personDocument.set({activeMealPlan: planDocument.id}, {merge: true})
-                    .then(result => {
-                        response.status(200).send(`Plan ${planDocument.id} set as the active meal plan`);
-                    });
+                        .then(() => {
+                            const message = new MessageFactory()
+                                .setPrimaryDomain(MessageFactoryPrimaryDomain.PLAN)
+                                .setOperation(MessageFactoryOperation.UPDATE)
+                                .setResult(MessageFactoryResult.SUCCESS)
+                                .setMessage(`Successfully set ${planDocument.id} as the active meal plan:`);
+
+                            response.status(200).send(message);
+                        });
                 }
-            }).catch(error => {
-                response.status(400).send(`Error setting plan ${planDocument.id} as the active meal plan`);
+            }).catch((error: firebase.firestore.FirestoreError) => {
+                const message = new MessageFactory()
+                    .setPrimaryDomain(MessageFactoryPrimaryDomain.PLAN)
+                    .setOperation(MessageFactoryOperation.UPDATE)
+                    .setResult(MessageFactoryResult.SUCCESS)
+                    .setMessage(`Error setting ${planDocument.id} as the active meal plan: ${error.message}`);
+
+                response.status(400).send(message);
             });
     });
 });

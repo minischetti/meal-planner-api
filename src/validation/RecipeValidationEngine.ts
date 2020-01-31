@@ -19,6 +19,7 @@ export class RecipeValidationEngine extends ValidationEngine {
 
     static validateAuthors(authors: Array<Author>) {
         const hasOwner = !!authors.find(author => author.role === RecipeUserRole.OWNER);
+
         if (!hasOwner) {
             return false;
         } else {

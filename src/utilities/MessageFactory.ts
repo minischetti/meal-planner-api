@@ -1,19 +1,24 @@
 export enum MessageFactoryPrimaryDomain {
     GROUP = "group",
     RECIPE = "recipe",
-    PLAN = "plan"
+    PLAN = "plan",
+    PEOPLE = "people"
 }
 
 export enum MessageFactorySecondaryDomain {
     AUTHORS = "authors",
     INGREDIENTS = "ingredients",
-    INSTRUCTIONS = "instructions"
+    INSTRUCTIONS = "instructions",
+    INVITES = "invites",
+    RECIPES = "recipes",
+    PLANS = "plans"
 }
 
 export enum MessageFactoryOperation {
     CREATE = "create",
     UPDATE = "update",
-    DELETE = "delete"
+    DELETE = "delete",
+    GET = "get"
 }
 
 export enum MessageFactoryResult {
@@ -21,7 +26,8 @@ export enum MessageFactoryResult {
     ERROR = "error",
     PERMISSION_DENY = "permission_deny",
     EMPTY = "empty",
-    BAD_REQUEST = "bad_request"
+    BAD_REQUEST = "bad_request",
+    ALREADY_EXISTS = "already_exists"
 }
 
 export class MessageFactory {
@@ -29,7 +35,7 @@ export class MessageFactory {
     secondaryDomain: MessageFactorySecondaryDomain;
     operation: MessageFactoryOperation;
     result: MessageFactoryResult;
-    errorMessage: string;
+    message: string;
 
     setPrimaryDomain(primaryDomain: MessageFactoryPrimaryDomain) {
         this.primaryDomain = primaryDomain;
@@ -55,8 +61,8 @@ export class MessageFactory {
         return this;
     }
 
-    setErrorMessage(errorMessage: string) {
-        this.errorMessage = errorMessage;
+    setMessage(message: string) {
+        this.message = message;
 
         return this;
     }

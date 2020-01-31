@@ -1,7 +1,6 @@
 import {server, database} from "../../index";
 import {RootCollections, SubCollections} from "../../firebase/collections";
 import {MessageFactory, MessageFactoryPrimaryDomain, MessageFactorySecondaryDomain, MessageFactoryOperation, MessageFactoryResult} from "../../utilities/MessageFactory";
-import {RecipeValidationEngine} from "../../validation/RecipeValidationEngine";
 import {RecipeUserRole, NewRecipeRequest, Author, GroupUserRole} from "../../models/index";
 
 /**
@@ -11,15 +10,26 @@ server.route('/api/people/:person/').get((request, response) => {
     const person = request.params['person'];
 
     database.collection(RootCollections.PEOPLE).doc(person).get()
-        .then((document: any) => {
+        .then((document: firebase.firestore.DocumentSnapshot) => {
             if (document.exists) {
                 response.status(200).send(document.data());
             } else {
-                response.status(404).send(`Person ${person} does not exist`);
+                const message = new MessageFactory()
+                    .setPrimaryDomain(MessageFactoryPrimaryDomain.PEOPLE)
+                    .setOperation(MessageFactoryOperation.GET)
+                    .setResult(MessageFactoryResult.EMPTY)
+
+                response.status(404).send(message);
             }
         })
         .catch((error: firebase.FirebaseError) => {
-            response.status(400).send(`Error getting person ${person}: ${error.message}`);
+            const message = new MessageFactory()
+                .setPrimaryDomain(MessageFactoryPrimaryDomain.PEOPLE)
+                .setOperation(MessageFactoryOperation.GET)
+                .setResult(MessageFactoryResult.ERROR)
+                .setMessage(error.message);
+
+            response.status(404).send(message);
         });
 });
 
@@ -56,10 +66,23 @@ server.route('/api/people/:person/recipes').post((request, response) => {
     // Commit the batch operation for group creation and member additions
     batch.commit()
         .then(() => {
-            response.status(200).send(`Recipe ${newRecipeDocument.id} successfully created`);
+            const message = new MessageFactory()
+                .setPrimaryDomain(MessageFactoryPrimaryDomain.PEOPLE)
+                .setSecondaryDomain(MessageFactorySecondaryDomain.RECIPES)
+                .setOperation(MessageFactoryOperation.CREATE)
+                .setResult(MessageFactoryResult.SUCCESS)
+
+            response.status(200).send(message);
         })
         .catch((error: firebase.firestore.FirestoreError) => {
-            response.status(400).send(`Error creating new recipe: ${error.message}`);
+            const message = new MessageFactory()
+                .setPrimaryDomain(MessageFactoryPrimaryDomain.PEOPLE)
+                .setSecondaryDomain(MessageFactorySecondaryDomain.RECIPES)
+                .setOperation(MessageFactoryOperation.CREATE)
+                .setResult(MessageFactoryResult.ERROR)
+                .setMessage(error.message);
+
+            response.status(400).send(message);
         });
 });
 
@@ -101,9 +124,23 @@ server.route('/api/people/:person/invites/:invite').post((request, response) => 
     // Batch commit updates to the group and person's invites, then add the person to the group if the invite was accepted
     batch.commit()
         .then(() => {
-            response.status(200).send(`Person ${person} added to group ${group}`);
+            const message = new MessageFactory()
+                .setPrimaryDomain(MessageFactoryPrimaryDomain.PEOPLE)
+                .setSecondaryDomain(MessageFactorySecondaryDomain.INVITES)
+                .setOperation(MessageFactoryOperation.UPDATE)
+                .setResult(MessageFactoryResult.SUCCESS)
+                .setMessage(`Person ${person} added to group ${group}`);
+
+            response.status(200).send(message);
         })
         .catch((error: firebase.firestore.FirestoreError) => {
-            response.status(400).send(error);
+            const message = new MessageFactory()
+                .setPrimaryDomain(MessageFactoryPrimaryDomain.PEOPLE)
+                .setSecondaryDomain(MessageFactorySecondaryDomain.INVITES)
+                .setOperation(MessageFactoryOperation.UPDATE)
+                .setResult(MessageFactoryResult.ERROR)
+                .setMessage(error.message);
+
+            response.status(400).send(message);
         });
 });
