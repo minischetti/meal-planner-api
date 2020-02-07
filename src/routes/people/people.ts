@@ -29,7 +29,7 @@ server.route('/api/people/:person/').get((request, response) => {
                 .setResult(MessageFactoryResult.ERROR)
                 .setMessage(error.message);
 
-            response.status(404).send(message);
+            response.status(400).send(message);
         });
 });
 
