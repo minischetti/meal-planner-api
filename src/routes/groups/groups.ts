@@ -3,7 +3,7 @@ import {RootCollections, SubCollections} from "../../firebase/collections";
 import {MessageFactory, MessageFactoryPrimaryDomain, MessageFactorySecondaryDomain, MessageFactoryOperation, MessageFactoryResult} from "../../utilities/MessageFactory";
 import {RecipeValidationEngine} from "../../validation/RecipeValidationEngine";
 import {NewGroupRequest, GroupUser, GroupUserRole, SenderInvite, RecipientInvite, AddRecipeToGroupRequest} from "../../models/index";
-import { getDocumentsFromSnapshot } from "../../../src/firebase/helpers";
+import { getDocumentsFromSnapshot } from "../../firebase/helpers";
 
 /**
  * Creates a new group.

@@ -2,7 +2,7 @@ import {server, database} from "../../index";
 import {RootCollections, SubCollections} from "../../firebase/collections";
 import {MessageFactory, MessageFactoryPrimaryDomain, MessageFactorySecondaryDomain, MessageFactoryOperation, MessageFactoryResult} from "../../utilities/MessageFactory";
 import {NewMealPlanRequest, PlanDay} from "../../models/index";
-import {getDocumentsFromSnapshot} from "../../../src/firebase/helpers";
+import {getDocumentsFromSnapshot} from "../../firebase/helpers";
 
 /**
  * Gets a personal meal plan.
