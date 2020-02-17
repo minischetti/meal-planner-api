@@ -60,6 +60,7 @@ server.route('/api/people/:person/recipes').post((request, response) => {
     if (members.length) {
         members.forEach((author: Author) => {
             batch.set(newRecipeDocument.collection(SubCollections.RECIPE_MEMBERS).doc(author.id), author);
+            batch.set(database.collection(RootCollections.PEOPLE).doc(author.id).collection(SubCollections.RECIPES).doc(newRecipeDocument.id), {id: newRecipeDocument.id, role: author.role});
         });
     }
 

@@ -1,10 +1,10 @@
-import {server, database} from "../../index";
-import {RootCollections, SubCollections} from "../../firebase/collections";
-import {getDocumentsFromSnapshot} from "../../firebase/helpers";
-import {MessageFactory, MessageFactoryPrimaryDomain, MessageFactorySecondaryDomain, MessageFactoryOperation, MessageFactoryResult} from "../../utilities/MessageFactory";
-import {RecipeValidationEngine} from "../../validation/RecipeValidationEngine";
-import {Author, Instruction, Ingredient} from "../../models/index";
-import {updateRecipe} from "./helpers";
+import { server, database } from "../../index";
+import { RootCollections, SubCollections } from "../../firebase/collections";
+import { getDocumentsFromSnapshot } from "../../firebase/helpers";
+import { MessageFactory, MessageFactoryPrimaryDomain, MessageFactorySecondaryDomain, MessageFactoryOperation, MessageFactoryResult } from "../../utilities/MessageFactory";
+import { RecipeValidationEngine } from "../../validation/RecipeValidationEngine";
+import { Author, Instruction, Ingredient } from "../../models/index";
+import { updateRecipe } from "./helpers";
 
 /**
  * Gets all recipes.
@@ -35,17 +35,41 @@ server.route('/api/recipes/').get((request, response) => {
  */
 server.route('/api/recipes/:recipe/').get((request, response) => {
     const recipe = request.params['recipe'];
+    const recipeDocument = database.collection(RootCollections.RECIPES).doc(recipe);
 
-    database.collection(RootCollections.RECIPES).doc(recipe).get()
-        .then((document: firebase.firestore.QueryDocumentSnapshot) => {
+    // database.collection(RootCollections.RECIPES).doc(recipe).get()
+    //     .then((document: firebase.firestore.QueryDocumentSnapshot) => {
+    //         if (document.exists) {
+    //             response.status(200).send(document.data());
+    //         } else {
+    //             response.status(404).send("Recipe not found")
+    //         }
+    //     })
+    //     .catch((error: firebase.FirebaseError) => {
+    //         response.status(400).send(`Error getting recipe ${recipe}: ${error.message}`);
+    //     });
+
+    recipeDocument.get()
+        .then(document => {
             if (document.exists) {
-                response.status(200).send(document.data());
-            } else {
-                response.status(404).send("Recipe not found")
+                const recipe = document.data();
+                recipeDocument.collection(SubCollections.RECIPE_MEMBERS).get()
+                    .then((snapshot: firebase.firestore.QuerySnapshot) => {
+                        const recipeMembers = getDocumentsFromSnapshot(snapshot.docs);
+                        const recipeWithMembers = { ...recipe, members: recipeMembers };
+                        response.status(200).send(recipeWithMembers);
+                    });
             }
         })
-        .catch((error: firebase.FirebaseError) => {
-            response.status(400).send(`Error getting recipe ${recipe}: ${error.message}`);
+        .catch((error: firebase.firestore.FirestoreError) => {
+            const message = new MessageFactory()
+                .setPrimaryDomain(MessageFactoryPrimaryDomain.PEOPLE)
+                .setSecondaryDomain(MessageFactorySecondaryDomain.RECIPES)
+                .setOperation(MessageFactoryOperation.GET)
+                .setResult(MessageFactoryResult.ERROR)
+                .setMessage(error.message);
+
+            response.status(400).send(message);
         });
 });
 
@@ -86,7 +110,7 @@ server.route('/api/people/:person/recipes').get((request, response) => {
  *
  */
 server.route('/api/recipes/:recipe/name').put((request, response) => {
-    const {name} = request.body;
+    const { name } = request.body;
 
     const newRecipeName = {
         name: name as string
@@ -100,7 +124,7 @@ server.route('/api/recipes/:recipe/name').put((request, response) => {
  *
  */
 server.route('/api/recipes/:recipe/authors').put((request, response) => {
-    const {authors} = request.body;
+    const { authors } = request.body;
 
     const newRecipeAuthors = {
         authors: authors as Array<Author>
@@ -114,7 +138,7 @@ server.route('/api/recipes/:recipe/authors').put((request, response) => {
             .setSecondaryDomain(MessageFactorySecondaryDomain.AUTHORS)
             .setResult(MessageFactoryResult.BAD_REQUEST)
 
-            return response.status(400).send(message);
+        return response.status(400).send(message);
     }
 
     updateRecipe(request, response, newRecipeAuthors);
@@ -125,7 +149,7 @@ server.route('/api/recipes/:recipe/authors').put((request, response) => {
  *
  */
 server.route('/api/recipes/:recipe/instructions').put((request, response) => {
-    const {instructions} = request.body;
+    const { instructions } = request.body;
 
     const newRecipeInstructions = {
         instructions: instructions as Array<Instruction>
@@ -139,7 +163,7 @@ server.route('/api/recipes/:recipe/instructions').put((request, response) => {
             .setSecondaryDomain(MessageFactorySecondaryDomain.INSTRUCTIONS)
             .setResult(MessageFactoryResult.BAD_REQUEST)
 
-            return response.status(400).send(message);
+        return response.status(400).send(message);
     }
 
     updateRecipe(request, response, newRecipeInstructions);
@@ -151,7 +175,7 @@ server.route('/api/recipes/:recipe/instructions').put((request, response) => {
  *
  */
 server.route('/api/recipes/:recipe/ingredients').put((request, response) => {
-    const {ingredients} = request.body;
+    const { ingredients } = request.body;
 
     const newRecipeIngredients = {
         ingredients: ingredients as Array<Ingredient>
