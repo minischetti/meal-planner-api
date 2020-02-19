@@ -110,13 +110,15 @@ server.route('/api/people/:person/recipes').get((request, response) => {
  *
  */
 server.route('/api/recipes/:recipe/name').put((request, response) => {
-    const { name } = request.body;
+    const { newRecipeName } = request.body;
 
-    const newRecipeName = {
-        name: name as string
+
+    const payload = {
+        name: newRecipeName as string
     }
 
-    return updateRecipe(request, response, newRecipeName);
+
+    return updateRecipe(request, response, payload);
 });
 
 /**

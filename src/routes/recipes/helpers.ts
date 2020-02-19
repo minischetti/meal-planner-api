@@ -13,9 +13,9 @@ import {database} from "../../index";
  */
 export function updateRecipe(request: any, response: any, newData: any) {
     const recipe = request.params['recipe'];
-    const {personId} = request.body;
+    const {profileId} = request.body;
 
-    if (!personId || !newData) {
+    if (!profileId || !newData) {
         const message = new MessageFactory()
             .setPrimaryDomain(MessageFactoryPrimaryDomain.RECIPE)
             .setResult(MessageFactoryResult.BAD_REQUEST)
@@ -29,7 +29,7 @@ export function updateRecipe(request: any, response: any, newData: any) {
         .then(result => {
             if (result.exists) {
                 const recipeMemberCollection = recipeDocument.collection(SubCollections.RECIPE_MEMBERS);
-                const recipeMemberDocument = recipeMemberCollection.doc(personId);
+                const recipeMemberDocument = recipeMemberCollection.doc(profileId);
 
                 recipeMemberDocument.get()
                     .then(result => {
