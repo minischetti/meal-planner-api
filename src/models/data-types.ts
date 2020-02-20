@@ -47,8 +47,8 @@ export interface Author {
 }
 
 export interface Ingredient {
-    name: string
-    amount: string
+    description: string
+    optional: boolean
 }
 
 export interface Instruction {
