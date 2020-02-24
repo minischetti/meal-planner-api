@@ -9,6 +9,10 @@ export class RecipeValidationEngine extends ValidationEngine {
         super();
     }
 
+    static validateName(name: String) {
+        return this.validateString(name);
+    }
+
     static validateInstructions(instructions: Array<Instruction>) {
         return this.validateArray(instructions);
     }

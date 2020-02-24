@@ -1,7 +1,8 @@
-import {server, database} from "../../index";
-import {RootCollections, SubCollections} from "../../firebase/collections";
-import {MessageFactory, MessageFactoryPrimaryDomain, MessageFactorySecondaryDomain, MessageFactoryOperation, MessageFactoryResult} from "../../utilities/MessageFactory";
-import {RecipeUserRole, NewRecipeRequest, Author, GroupUserRole} from "../../models/index";
+import { server, database } from "../../index";
+import { RootCollections, SubCollections } from "../../firebase/collections";
+import { MessageFactory, MessageFactoryPrimaryDomain, MessageFactorySecondaryDomain, MessageFactoryOperation, MessageFactoryResult } from "../../utilities/MessageFactory";
+import { RecipeUserRole, NewRecipeRequest, Author, GroupUserRole } from "../../models/index";
+import { RecipeValidationEngine } from "../../validation/RecipeValidationEngine";
 
 /**
  * Gets a person.
@@ -38,8 +39,8 @@ server.route('/api/people/:person/').get((request, response) => {
  */
 server.route('/api/people/:person/recipes').post((request, response) => {
     const person = request.params['person'];
-    const {name, ingredients, instructions} = request.body;
-    const members = [{id: person, role: RecipeUserRole.OWNER}];
+    const { name, ingredients, instructions } = request.body;
+    const members = [{ id: person, role: RecipeUserRole.OWNER }];
 
     const newRecipeDocument = database.collection(RootCollections.RECIPES).doc();
 
@@ -49,6 +50,20 @@ server.route('/api/people/:person/recipes').post((request, response) => {
         ingredients,
         instructions
     };
+
+    const validName = RecipeValidationEngine.validateName(name);
+    const validIngredients = RecipeValidationEngine.validateIngredients(ingredients);
+    const validInstructions = RecipeValidationEngine.validateInstructions(instructions);
+
+    if (!validName || !validIngredients || !validInstructions) {
+        const message = new MessageFactory()
+        .setPrimaryDomain(MessageFactoryPrimaryDomain.PEOPLE)
+        .setSecondaryDomain(MessageFactorySecondaryDomain.RECIPES)
+        .setOperation(MessageFactoryOperation.CREATE)
+        .setResult(MessageFactoryResult.ERROR)
+
+        response.status(400).send(message);
+    }
 
     // Initiate a batch operation
     const batch = database.batch();
@@ -60,7 +75,7 @@ server.route('/api/people/:person/recipes').post((request, response) => {
     if (members.length) {
         members.forEach((author: Author) => {
             batch.set(newRecipeDocument.collection(SubCollections.RECIPE_MEMBERS).doc(author.id), author);
-            batch.set(database.collection(RootCollections.PEOPLE).doc(author.id).collection(SubCollections.RECIPES).doc(newRecipeDocument.id), {id: newRecipeDocument.id, role: author.role});
+            batch.set(database.collection(RootCollections.PEOPLE).doc(author.id).collection(SubCollections.RECIPES).doc(newRecipeDocument.id), { id: newRecipeDocument.id, role: author.role });
         });
     }
 
@@ -94,7 +109,7 @@ server.route('/api/people/:person/recipes').post((request, response) => {
 server.route('/api/people/:person/invites/:invite').post((request, response) => {
     const person = request.params['person'];
     const invite = request.params['invite'];
-    const {group, answer} = request.body;
+    const { group, answer } = request.body;
 
     const inviteResponse = {
         answer,
@@ -119,7 +134,7 @@ server.route('/api/people/:person/invites/:invite').post((request, response) => 
 
     // If the recipient has accepted the invite, add them to the group
     if (answer === true) {
-        batch.set(groupMemberCollection.doc(person), {id: person, status: GroupUserRole.MEMBER});
+        batch.set(groupMemberCollection.doc(person), { id: person, status: GroupUserRole.MEMBER });
     }
 
     // Batch commit updates to the group and person's invites, then add the person to the group if the invite was accepted
