@@ -3,7 +3,7 @@ import { RootCollections, SubCollections } from "../../firebase/collections";
 import { getDocumentsFromSnapshot } from "../../firebase/helpers";
 import { MessageFactory, MessageFactoryPrimaryDomain, MessageFactorySecondaryDomain, MessageFactoryOperation, MessageFactoryResult } from "../../utilities/MessageFactory";
 import { RecipeValidationEngine } from "../../validation/RecipeValidationEngine";
-import { Author, Instruction, Ingredient } from "../../models/index";
+import { Author, Instruction, Ingredient, Recipe } from "../../models/index";
 import { updateRecipe } from "./helpers";
 
 /**
@@ -92,7 +92,7 @@ server.route('/api/people/:person/recipes').get((request, response) => {
                             if (document.exists) {
                                 return document.data();
                             }
-                        });
+                        }).filter((recipe: Recipe) => recipe);
 
                         response.status(200).send(recipes);
                     })

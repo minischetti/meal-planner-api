@@ -62,7 +62,7 @@ server.route('/api/people/:person/recipes').post((request, response) => {
         .setOperation(MessageFactoryOperation.CREATE)
         .setResult(MessageFactoryResult.ERROR)
 
-        response.status(400).send(message);
+        return response.status(400).send(message);
     }
 
     // Initiate a batch operation
