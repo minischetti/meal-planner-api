@@ -34,7 +34,7 @@ export interface GroupUser {
 }
 
 export interface Recipe {
-    id: string
+    id?: string
     name: string
     authors: Array<Author>
     ingredients: Array<Ingredient>

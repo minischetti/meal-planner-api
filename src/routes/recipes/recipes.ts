@@ -3,8 +3,9 @@ import { RootCollections, SubCollections } from "../../firebase/collections";
 import { getDocumentsFromSnapshot } from "../../firebase/helpers";
 import { MessageFactory, MessageFactoryPrimaryDomain, MessageFactorySecondaryDomain, MessageFactoryOperation, MessageFactoryResult } from "../../utilities/MessageFactory";
 import { RecipeValidationEngine } from "../../validation/RecipeValidationEngine";
-import { Author, Instruction, Ingredient, Recipe } from "../../models/index";
+import { Author, Instruction, Ingredient, Recipe, RecipeUserRole } from "../../models/index";
 import { updateRecipe } from "./helpers";
+import { RecipePermissionEngine } from "../../permissions/RecipePermissionEngine";
 
 /**
  * Gets all recipes.
@@ -36,18 +37,6 @@ server.route('/api/recipes/').get((request, response) => {
 server.route('/api/recipes/:recipe/').get((request, response) => {
     const recipe = request.params['recipe'];
     const recipeDocument = database.collection(RootCollections.RECIPES).doc(recipe);
-
-    // database.collection(RootCollections.RECIPES).doc(recipe).get()
-    //     .then((document: firebase.firestore.QueryDocumentSnapshot) => {
-    //         if (document.exists) {
-    //             response.status(200).send(document.data());
-    //         } else {
-    //             response.status(404).send("Recipe not found")
-    //         }
-    //     })
-    //     .catch((error: firebase.FirebaseError) => {
-    //         response.status(400).send(`Error getting recipe ${recipe}: ${error.message}`);
-    //     });
 
     recipeDocument.get()
         .then(document => {
@@ -106,35 +95,36 @@ server.route('/api/people/:person/recipes').get((request, response) => {
 });
 
 /**
- * Edits a recipe's name.
+ * Updates a recipe.
  *
  */
-server.route('/api/recipes/:recipe/name').put((request, response) => {
-    const { newRecipeName } = request.body;
+server.route('/api/recipes/:recipe').put((request, response) => {
+    const { profileId, name, authors, ingredients, instructions } = request.body;
+    const recipe = request.params['recipe'];
 
+    const isValidName = RecipeValidationEngine.validateName(name);
+    const areValidAuthors = RecipeValidationEngine.validateAuthors(authors);
+    const areValidIngredients = RecipeValidationEngine.validateIngredients(ingredients);
+    const areValidInstructions = RecipeValidationEngine.validateInstructions(instructions);
 
-    const payload = {
-        name: newRecipeName as string
+    if (!profileId) {
+        const message = new MessageFactory()
+            .setPrimaryDomain(MessageFactoryPrimaryDomain.RECIPE)
+            .setResult(MessageFactoryResult.BAD_REQUEST)
+
+        return response.status(400).send(message);
     }
 
+    if (!isValidName) {
+        const message = new MessageFactory()
+            .setPrimaryDomain(MessageFactoryPrimaryDomain.RECIPE)
+            .setSecondaryDomain(MessageFactorySecondaryDomain.NAME)
+            .setResult(MessageFactoryResult.BAD_REQUEST)
 
-    return updateRecipe(request, response, payload);
-});
-
-/**
- * Edits a recipe's authors.
- *
- */
-server.route('/api/recipes/:recipe/authors').put((request, response) => {
-    const { authors } = request.body;
-
-    const newRecipeAuthors = {
-        authors: authors as Array<Author>
+        return response.status(400).send(message);
     }
 
-    const validAuthors = RecipeValidationEngine.validateAuthors(authors);
-
-    if (!validAuthors) {
+    if (!areValidAuthors) {
         const message = new MessageFactory()
             .setPrimaryDomain(MessageFactoryPrimaryDomain.RECIPE)
             .setSecondaryDomain(MessageFactorySecondaryDomain.AUTHORS)
@@ -143,49 +133,7 @@ server.route('/api/recipes/:recipe/authors').put((request, response) => {
         return response.status(400).send(message);
     }
 
-    updateRecipe(request, response, newRecipeAuthors);
-});
-
-/**
- * Edits a recipe's instructions.
- *
- */
-server.route('/api/recipes/:recipe/instructions').put((request, response) => {
-    const { instructions } = request.body;
-
-    const newRecipeInstructions = {
-        instructions: instructions as Array<Instruction>
-    }
-
-    const validInstructions = RecipeValidationEngine.validateInstructions(instructions);
-
-    if (!validInstructions) {
-        const message = new MessageFactory()
-            .setPrimaryDomain(MessageFactoryPrimaryDomain.RECIPE)
-            .setSecondaryDomain(MessageFactorySecondaryDomain.INSTRUCTIONS)
-            .setResult(MessageFactoryResult.BAD_REQUEST)
-
-        return response.status(400).send(message);
-    }
-
-    updateRecipe(request, response, newRecipeInstructions);
-});
-
-
-/**
- * Edits a recipe's ingredients.
- *
- */
-server.route('/api/recipes/:recipe/ingredients').put((request, response) => {
-    const { ingredients } = request.body;
-
-    const newRecipeIngredients = {
-        ingredients: ingredients as Array<Ingredient>
-    }
-
-    const validIngredients = RecipeValidationEngine.validateIngredients(ingredients);
-
-    if (!validIngredients) {
+    if (!areValidIngredients) {
         const message = new MessageFactory()
             .setPrimaryDomain(MessageFactoryPrimaryDomain.RECIPE)
             .setSecondaryDomain(MessageFactorySecondaryDomain.INGREDIENTS)
@@ -194,7 +142,55 @@ server.route('/api/recipes/:recipe/ingredients').put((request, response) => {
         return response.status(400).send(message);
     }
 
-    updateRecipe(request, response, newRecipeIngredients);
+    if (!areValidInstructions) {
+        const message = new MessageFactory()
+            .setPrimaryDomain(MessageFactoryPrimaryDomain.RECIPE)
+            .setSecondaryDomain(MessageFactorySecondaryDomain.INSTRUCTIONS)
+            .setResult(MessageFactoryResult.BAD_REQUEST)
+
+        return response.status(400).send(message);
+    }
+
+    const editedRecipe: Recipe = {
+        name,
+        authors,
+        ingredients,
+        instructions
+    }
+
+    const canEditRecipe = authors.some((author: Author) => {
+        return author.id === profileId && RecipePermissionEngine.canEditRecipe(author.role);
+    });
+
+    if (!canEditRecipe) {
+        const message = new MessageFactory()
+            .setPrimaryDomain(MessageFactoryPrimaryDomain.RECIPE)
+            .setResult(MessageFactoryResult.PERMISSION_DENY)
+
+        return response.status(400).send(message);
+    }
+
+    const recipeDocument = database.collection(RootCollections.RECIPES).doc(recipe);
+
+
+    // TODO: Support updating relevant documents when authors are modified.
+    recipeDocument.set(editedRecipe)
+        .then(() => {
+            const message = new MessageFactory()
+                .setPrimaryDomain(MessageFactoryPrimaryDomain.RECIPE)
+                .setOperation(MessageFactoryOperation.UPDATE)
+                .setResult(MessageFactoryResult.SUCCESS);
+
+            return response.status(200).send(message);
+        }).catch((error: firebase.firestore.FirestoreError) => {
+            const message = new MessageFactory()
+                .setPrimaryDomain(MessageFactoryPrimaryDomain.RECIPE)
+                .setOperation(MessageFactoryOperation.UPDATE)
+                .setResult(MessageFactoryResult.ERROR)
+                .setMessage(error.message);
+
+            return response.status(400).send(message);
+        });
 });
 
 /**

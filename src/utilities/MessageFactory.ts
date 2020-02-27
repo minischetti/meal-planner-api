@@ -11,7 +11,8 @@ export enum MessageFactorySecondaryDomain {
     INSTRUCTIONS = "instructions",
     INVITES = "invites",
     RECIPES = "recipes",
-    PLANS = "plans"
+    PLANS = "plans",
+    NAME = "name"
 }
 
 export enum MessageFactoryOperation {
