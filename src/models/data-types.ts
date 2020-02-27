@@ -34,9 +34,20 @@ export interface GroupUser {
 }
 
 export interface Recipe {
-    id?: string
     name: string
+    prepTime: string
+    cookTime: string
     authors: Array<Author>
+    ingredients: Array<Ingredient>
+    instructions: Array<Instruction>
+}
+
+export interface EditedRecipe {
+    id: string
+    name: string
+    prepTime: string
+    cookTime: string
+    authors?: Array<Author>
     ingredients: Array<Ingredient>
     instructions: Array<Instruction>
 }

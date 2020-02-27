@@ -19,6 +19,8 @@ export interface NewGroupRequest {
 export interface NewRecipeRequest {
     id: string // new recipe document id
     name: string
+    prepTime: string
+    cookTime: string
     ingredients: Array<Ingredient>
     instructions: Array<Instruction>
 }
