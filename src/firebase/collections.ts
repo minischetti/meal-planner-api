@@ -6,11 +6,12 @@ export enum RootCollections {
 }
 
 export enum SubCollections {
-    RECIPES = "recipes",
     INVITES = "invites",
     MEMBERS = "members",
+    GROUPS = "groups",
     GROUP_MEMBERS = "group_members",
     RECIPE_MEMBERS = "recipe_members",
+    RECIPES = "recipes",
     PLANS = "plans",
     DAYS = "days"
 }

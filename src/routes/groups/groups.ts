@@ -1,15 +1,28 @@
-import {server, database} from "../../index";
-import {RootCollections, SubCollections} from "../../firebase/collections";
-import {MessageFactory, MessageFactoryPrimaryDomain, MessageFactorySecondaryDomain, MessageFactoryOperation, MessageFactoryResult} from "../../utilities/MessageFactory";
-import {RecipeValidationEngine} from "../../validation/RecipeValidationEngine";
-import {NewGroupRequest, GroupUser, GroupUserRole, SenderInvite, RecipientInvite, AddRecipeToGroupRequest} from "../../models/index";
+import { server, database } from "../../index";
+import { RootCollections, SubCollections } from "../../firebase/collections";
+import {
+    MessageFactory,
+    MessageFactoryPrimaryDomain,
+    MessageFactorySecondaryDomain,
+    MessageFactoryOperation,
+    MessageFactoryResult
+} from "../../utilities/MessageFactory";
+import {
+    NewGroupRequest,
+    GroupUser,
+    GroupUserRole,
+    SenderInvite,
+    RecipientInvite,
+    AddRecipeToGroupRequest,
+    Author
+} from "../../models/index";
 import { getDocumentsFromSnapshot } from "../../firebase/helpers";
 
 /**
  * Creates a new group.
  */
-server.route('/api/groups').post((request, response) => {
-    const {name, owner} = request.body;
+server.route("/api/groups").post((request, response) => {
+    const { name, owner } = request.body;
 
     const groupDocument = database.collection(RootCollections.GROUPS).doc();
     const groupDocumentId = groupDocument.id;
@@ -31,10 +44,14 @@ server.route('/api/groups').post((request, response) => {
     batch.set(groupDocument, newGroup);
 
     // Queue the addition of the group owner as a member
-    batch.set(groupDocument.collection(SubCollections.GROUP_MEMBERS).doc(owner), newOwner);
+    batch.set(
+        groupDocument.collection(SubCollections.GROUP_MEMBERS).doc(owner),
+        newOwner
+    );
 
     // Commit the batch operation for group creation and member addition
-    batch.commit()
+    batch
+        .commit()
         .then(() => {
             const message = new MessageFactory()
                 .setPrimaryDomain(MessageFactoryPrimaryDomain.GROUP)
@@ -57,8 +74,10 @@ server.route('/api/groups').post((request, response) => {
 /**
  * Gets all groups.
  */
-server.route('/api/groups').get((request, response) => {
-    database.collection(RootCollections.GROUPS).get()
+server.route("/api/groups").get((request, response) => {
+    database
+        .collection(RootCollections.GROUPS)
+        .get()
         .then((snapshot: firebase.firestore.QuerySnapshot) => {
             if (snapshot.docs.length) {
                 const groups = getDocumentsFromSnapshot(snapshot.docs);
@@ -68,7 +87,7 @@ server.route('/api/groups').get((request, response) => {
                 const message = new MessageFactory()
                     .setPrimaryDomain(MessageFactoryPrimaryDomain.GROUP)
                     .setOperation(MessageFactoryOperation.GET)
-                    .setResult(MessageFactoryResult.EMPTY)
+                    .setResult(MessageFactoryResult.EMPTY);
 
                 response.status(404).send(message);
             }
@@ -81,29 +100,78 @@ server.route('/api/groups').get((request, response) => {
                 .setMessage(error.message);
 
             response.status(400).send(message);
-        })
+        });
 });
 
 /**
  * Gets a specific group.
  */
-server.route('/api/groups/:group').get((request, response) => {
-    const group = request.params['group'];
+server.route("/api/groups/:groupId").get((request, response) => {
+    const groupId = request.params["groupId"];
 
-    database.collection(RootCollections.GROUPS).doc(group).get()
-        .then((document: firebase.firestore.QueryDocumentSnapshot) => {
+    database
+        .collection(RootCollections.GROUPS)
+        .doc(groupId)
+        .get()
+        .then(document => {
             if (document.exists) {
-                response.status(200).send(document.data());
+                return response.status(200).send(document.data());
             } else {
                 const message = new MessageFactory()
                     .setPrimaryDomain(MessageFactoryPrimaryDomain.GROUP)
                     .setOperation(MessageFactoryOperation.GET)
-                    .setResult(MessageFactoryResult.EMPTY)
+                    .setResult(MessageFactoryResult.EMPTY);
+                return response.status(404).send(message);
+            }
+        });
+});
 
-                response.status(404).send(message);
+/**
+ * Gets a group's members.
+ */
+server.route("/api/groups/:groupId/members").get((request, response) => {
+    const groupId = request.params["groupId"];
+
+    database
+        .collection(RootCollections.GROUPS)
+        .doc(groupId)
+        .collection(SubCollections.GROUP_MEMBERS)
+        .get()
+        .then((snapshot: firebase.firestore.QuerySnapshot) => {
+            if (snapshot.docs.length) {
+                const members = getDocumentsFromSnapshot(snapshot.docs);
+
+                const memberDocuments = members.map(member =>
+                    database
+                        .collection(RootCollections.PEOPLE)
+                        .doc(member.id)
+                        .get()
+                );
+
+                Promise.all([...memberDocuments]).then(documents => {
+                    const members = documents
+                        .map(
+                            (document: firebase.firestore.DocumentSnapshot) => {
+                                if (document.exists) {
+                                    return document.data();
+                                }
+                            }
+                        )
+                        .filter(member => member);
+                    return response.status(200).send(members);
+                });
+            } else {
+                const message = new MessageFactory()
+                    .setPrimaryDomain(MessageFactoryPrimaryDomain.GROUP)
+                    .setSecondaryDomain(
+                        MessageFactorySecondaryDomain.GROUP_MEMBERS
+                    )
+                    .setOperation(MessageFactoryOperation.GET)
+                    .setResult(MessageFactoryResult.EMPTY);
+                return response.status(404).send(message);
             }
         })
-        .catch((error: any) => {
+        .catch((error: firebase.FirebaseError) => {
             const message = new MessageFactory()
                 .setPrimaryDomain(MessageFactoryPrimaryDomain.GROUP)
                 .setOperation(MessageFactoryOperation.GET)
@@ -115,12 +183,72 @@ server.route('/api/groups/:group').get((request, response) => {
 });
 
 /**
+ * Gets a group's recipes.
+ */
+server.route("/api/groups/:groupId/recipes").get((request, response) => {
+    const groupId = request.params["groupId"];
+
+    database
+        .collection(RootCollections.GROUPS)
+        .doc(groupId)
+        .collection(SubCollections.RECIPES)
+        .get()
+        .then((snapshot: firebase.firestore.QuerySnapshot) => {
+            if (snapshot.docs.length) {
+                const recipes = getDocumentsFromSnapshot(snapshot.docs);
+
+                const recipeDocuments = recipes.map(recipe =>
+                    database
+                        .collection(RootCollections.RECIPES)
+                        .doc(recipe.id)
+                        .get()
+                );
+
+                Promise.all([...recipeDocuments]).then(documents => {
+                    const recipes = documents
+                        .map(
+                            (document: firebase.firestore.DocumentSnapshot) => {
+                                if (document.exists) {
+                                    return document.data();
+                                }
+                            }
+                        )
+                        .filter(recipe => recipe);
+
+                    return response.status(200).send(recipes);
+                });
+            } else {
+                const message = new MessageFactory()
+                    .setPrimaryDomain(MessageFactoryPrimaryDomain.GROUP)
+                    .setSecondaryDomain(MessageFactorySecondaryDomain.RECIPES)
+                    .setOperation(MessageFactoryOperation.GET)
+                    .setResult(MessageFactoryResult.EMPTY);
+                return response.status(404).send(message);
+            }
+        })
+        .catch((error: firebase.FirebaseError) => {
+            const message = new MessageFactory()
+                .setPrimaryDomain(MessageFactoryPrimaryDomain.GROUP)
+                .setSecondaryDomain(MessageFactorySecondaryDomain.RECIPES)
+                .setOperation(MessageFactoryOperation.GET)
+                .setResult(MessageFactoryResult.ERROR)
+                .setMessage(error.message);
+
+            response.status(400).send(message);
+        });
+});
+
+/**
  * Gets a group's invites.
  */
-server.route('/api/groups/:group/invites').get((request, response) => {
-    const groupId = request.params['group'];
+server.route("/api/groups/:group/invites").get((request, response) => {
+    const groupId = request.params["group"];
 
-    database.collection(RootCollections.GROUPS).doc(groupId).collection(SubCollections.INVITES).get()
+    database
+        .collection(RootCollections.GROUPS)
+        .doc(groupId)
+        .collection(SubCollections.INVITES)
+        .get()
         .then((snapshot: firebase.firestore.QuerySnapshot) => {
             if (snapshot.docs.length) {
                 const invites = getDocumentsFromSnapshot(snapshot.docs);
@@ -130,7 +258,7 @@ server.route('/api/groups/:group/invites').get((request, response) => {
                     .setPrimaryDomain(MessageFactoryPrimaryDomain.GROUP)
                     .setSecondaryDomain(MessageFactorySecondaryDomain.INVITES)
                     .setOperation(MessageFactoryOperation.GET)
-                    .setResult(MessageFactoryResult.EMPTY)
+                    .setResult(MessageFactoryResult.EMPTY);
 
                 response.status(404).send(message);
             }
@@ -144,19 +272,27 @@ server.route('/api/groups/:group/invites').get((request, response) => {
                 .setMessage(error.message);
 
             response.status(400).send(message);
-        })
+        });
 });
 
 /**
  * Invites a user to a group.
  */
-server.route('/api/groups/:group/invite').post((request, response) => {
-    const group = request.params['group'];
-    const {sender, recipient} = request.body;
+server.route("/api/groups/:group/invite").post((request, response) => {
+    const group = request.params["group"];
+    const { sender, recipient } = request.body;
 
-    const groupInviteDocument = database.collection(RootCollections.GROUPS).doc(group).collection(SubCollections.INVITES).doc();
+    const groupInviteDocument = database
+        .collection(RootCollections.GROUPS)
+        .doc(group)
+        .collection(SubCollections.INVITES)
+        .doc();
     const inviteId = groupInviteDocument.id;
-    const personInviteDocument = database.collection(RootCollections.PEOPLE).doc(recipient).collection(SubCollections.INVITES).doc(inviteId);
+    const personInviteDocument = database
+        .collection(RootCollections.PEOPLE)
+        .doc(recipient)
+        .collection(SubCollections.INVITES)
+        .doc(inviteId);
 
     const senderInvite: SenderInvite = {
         inviteId,
@@ -185,14 +321,17 @@ server.route('/api/groups/:group/invite').post((request, response) => {
     batch.set(personInviteDocument, recipientInvite);
 
     // Batch commit the updates to the group and profile invites
-    batch.commit()
+    batch
+        .commit()
         .then(() => {
             const message = new MessageFactory()
                 .setPrimaryDomain(MessageFactoryPrimaryDomain.GROUP)
                 .setSecondaryDomain(MessageFactorySecondaryDomain.INVITES)
                 .setOperation(MessageFactoryOperation.CREATE)
                 .setResult(MessageFactoryResult.SUCCESS)
-                .setMessage(`Invite to group ${group} sent to user ${recipient}`);
+                .setMessage(
+                    `Invite to group ${group} sent to user ${recipient}`
+                );
 
             response.status(200).send(message);
         })
@@ -211,12 +350,16 @@ server.route('/api/groups/:group/invite').post((request, response) => {
 /**
  * Gets all recipes from a group.
  */
-server.route('/api/groups/:group/recipes/').get((request, response) => {
-    const group = request.params['group'];
+server.route("/api/groups/:group/recipes/").get((request, response) => {
+    const group = request.params["group"];
 
-    const recipeCollectionReference = database.collection(RootCollections.GROUPS).doc(group).collection(SubCollections.RECIPES);
+    const recipeCollectionReference = database
+        .collection(RootCollections.GROUPS)
+        .doc(group)
+        .collection(SubCollections.RECIPES);
 
-    recipeCollectionReference.get()
+    recipeCollectionReference
+        .get()
         .then((snapshot: firebase.firestore.QuerySnapshot) => {
             if (snapshot.docs.length) {
                 const recipes = getDocumentsFromSnapshot(snapshot.docs);
@@ -226,7 +369,7 @@ server.route('/api/groups/:group/recipes/').get((request, response) => {
                     .setPrimaryDomain(MessageFactoryPrimaryDomain.GROUP)
                     .setSecondaryDomain(MessageFactorySecondaryDomain.RECIPES)
                     .setOperation(MessageFactoryOperation.GET)
-                    .setResult(MessageFactoryResult.EMPTY)
+                    .setResult(MessageFactoryResult.EMPTY);
 
                 response.status(404).send(message);
             }
@@ -246,39 +389,47 @@ server.route('/api/groups/:group/recipes/').get((request, response) => {
 /**
  * Links a recipe to a group.
  */
-server.route('/api/groups/:group/recipes').post((request, response) => {
-    const group = request.params['group'];
-    const {recipeOwnerId, recipeId} = request.body;
+server.route("/api/groups/:group/recipes").post((request, response) => {
+    const group = request.params["group"];
+    const { recipeOwnerId, recipeId } = request.body;
 
     const recipeToAdd: AddRecipeToGroupRequest = {
         recipeOwnerId,
         recipeId
     };
 
-    const newGroupRecipe = database.collection(RootCollections.GROUPS).doc(group).collection(SubCollections.RECIPES).doc(recipeId);
+    const newGroupRecipe = database
+        .collection(RootCollections.GROUPS)
+        .doc(group)
+        .collection(SubCollections.RECIPES)
+        .doc(recipeId);
 
     database.runTransaction(transaction => {
-        return transaction.get(newGroupRecipe)
+        return transaction
+            .get(newGroupRecipe)
             .then(result => {
                 if (result.exists) {
+                    const message = new MessageFactory()
+                        .setPrimaryDomain(MessageFactoryPrimaryDomain.GROUP)
+                        .setSecondaryDomain(
+                            MessageFactorySecondaryDomain.RECIPES
+                        )
+                        .setOperation(MessageFactoryOperation.CREATE)
+                        .setResult(MessageFactoryResult.ALREADY_EXISTS);
+
+                    response.status(409).send(message);
+                } else {
+                    newGroupRecipe.set(recipeToAdd).then(() => {
                         const message = new MessageFactory()
                             .setPrimaryDomain(MessageFactoryPrimaryDomain.GROUP)
-                            .setSecondaryDomain(MessageFactorySecondaryDomain.RECIPES)
+                            .setSecondaryDomain(
+                                MessageFactorySecondaryDomain.RECIPES
+                            )
                             .setOperation(MessageFactoryOperation.CREATE)
-                            .setResult(MessageFactoryResult.ALREADY_EXISTS)
+                            .setResult(MessageFactoryResult.SUCCESS);
 
-                        response.status(409).send(message);
-                } else {
-                    newGroupRecipe.set(recipeToAdd)
-                        .then(() => {
-                            const message = new MessageFactory()
-                                .setPrimaryDomain(MessageFactoryPrimaryDomain.GROUP)
-                                .setSecondaryDomain(MessageFactorySecondaryDomain.RECIPES)
-                                .setOperation(MessageFactoryOperation.CREATE)
-                                .setResult(MessageFactoryResult.SUCCESS)
-
-                            response.status(200).send(message);
-                        });
+                        response.status(200).send(message);
+                    });
                 }
             })
             .catch((error: firebase.firestore.FirestoreError) => {
@@ -297,31 +448,37 @@ server.route('/api/groups/:group/recipes').post((request, response) => {
 /**
  * Unlinks a recipe from a group.
  */
-server.route('/api/groups/:group/recipes/:recipe').delete((request, response) => {
-    const group = request.params['group'];
-    const recipe = request.params['recipe'];
+server
+    .route("/api/groups/:group/recipes/:recipe")
+    .delete((request, response) => {
+        const group = request.params["group"];
+        const recipe = request.params["recipe"];
 
-    const groupRecipe = database.collection(RootCollections.GROUPS).doc(group).collection(SubCollections.RECIPES).doc(recipe);
+        const groupRecipe = database
+            .collection(RootCollections.GROUPS)
+            .doc(group)
+            .collection(SubCollections.RECIPES)
+            .doc(recipe);
 
-    groupRecipe.delete()
-        .then(() => {
-            const message = new MessageFactory()
-                .setPrimaryDomain(MessageFactoryPrimaryDomain.GROUP)
-                .setSecondaryDomain(MessageFactorySecondaryDomain.RECIPES)
-                .setOperation(MessageFactoryOperation.DELETE)
-                .setResult(MessageFactoryResult.SUCCESS)
+        groupRecipe
+            .delete()
+            .then(() => {
+                const message = new MessageFactory()
+                    .setPrimaryDomain(MessageFactoryPrimaryDomain.GROUP)
+                    .setSecondaryDomain(MessageFactorySecondaryDomain.RECIPES)
+                    .setOperation(MessageFactoryOperation.DELETE)
+                    .setResult(MessageFactoryResult.SUCCESS);
 
-            response.status(200).send(message);
-        })
-        .catch((error: firebase.firestore.FirestoreError) => {
-            const message = new MessageFactory()
-                .setPrimaryDomain(MessageFactoryPrimaryDomain.GROUP)
-                .setSecondaryDomain(MessageFactorySecondaryDomain.RECIPES)
-                .setOperation(MessageFactoryOperation.DELETE)
-                .setResult(MessageFactoryResult.ERROR)
-                .setMessage(error.message);
+                response.status(200).send(message);
+            })
+            .catch((error: firebase.firestore.FirestoreError) => {
+                const message = new MessageFactory()
+                    .setPrimaryDomain(MessageFactoryPrimaryDomain.GROUP)
+                    .setSecondaryDomain(MessageFactorySecondaryDomain.RECIPES)
+                    .setOperation(MessageFactoryOperation.DELETE)
+                    .setResult(MessageFactoryResult.ERROR)
+                    .setMessage(error.message);
 
-            response.status(400).send(message);
-        });
-});
-
+                response.status(400).send(message);
+            });
+    });
