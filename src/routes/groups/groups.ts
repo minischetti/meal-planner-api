@@ -137,29 +137,29 @@ server.route("/api/groups/:groupId/members").get((request, response) => {
         .doc(groupId)
         .collection(SubCollections.GROUP_MEMBERS)
         .get()
-        .then((snapshot: firebase.firestore.QuerySnapshot) => {
+        .then(async (snapshot: firebase.firestore.QuerySnapshot) => {
             if (snapshot.docs.length) {
                 const members = getDocumentsFromSnapshot(snapshot.docs);
 
-                const memberDocuments = members.map(member =>
-                    database
-                        .collection(RootCollections.PEOPLE)
-                        .doc(member.id)
-                        .get()
+                const memberDetails = await Promise.all(
+                    // Map each member to a database operation, get the document if it exists, then combine role and member data
+                    members.map(member => {
+                        return database
+                            .collection(RootCollections.PEOPLE)
+                            .doc(member.id)
+                            .get()
+                            .then(document => {
+                                if (document.exists) {
+                                    return {
+                                        role: member.role,
+                                        ...document.data()
+                                    };
+                                }
+                            });
+                    })
                 );
 
-                Promise.all([...memberDocuments]).then(documents => {
-                    const members = documents
-                        .map(
-                            (document: firebase.firestore.DocumentSnapshot) => {
-                                if (document.exists) {
-                                    return document.data();
-                                }
-                            }
-                        )
-                        .filter(member => member);
-                    return response.status(200).send(members);
-                });
+                return response.status(200).send(memberDetails);
             } else {
                 const message = new MessageFactory()
                     .setPrimaryDomain(MessageFactoryPrimaryDomain.GROUP)
@@ -182,6 +182,30 @@ server.route("/api/groups/:groupId/members").get((request, response) => {
         });
 });
 
+// const getRecipesFromGroup = async (groupId: string) => {
+//     database
+//         .collection(RootCollections.GROUPS)
+//         .doc(groupId)
+//         .collection(SubCollections.RECIPES)
+//         .get()
+//         .then(async (snapshot: firebase.firestore.QuerySnapshot) => {
+//             if (snapshot.docs.length) {
+//                 const recipes = getDocumentsFromSnapshot(snapshot.docs);
+
+//                 const recipeDetails = await Promise.all(
+//                     recipes.map(recipe => {
+//                         database
+//                             .collection(RootCollections.RECIPES)
+//                             .doc(recipe.id)
+//                             .get()
+//                             .then(document => document.data());
+//                     })
+//                 );
+//                 return recipeDetails;
+//             }
+//         });
+// };
+
 /**
  * Gets a group's recipes.
  */
@@ -193,30 +217,21 @@ server.route("/api/groups/:groupId/recipes").get((request, response) => {
         .doc(groupId)
         .collection(SubCollections.RECIPES)
         .get()
-        .then((snapshot: firebase.firestore.QuerySnapshot) => {
+        .then(async (snapshot: firebase.firestore.QuerySnapshot) => {
             if (snapshot.docs.length) {
                 const recipes = getDocumentsFromSnapshot(snapshot.docs);
 
-                const recipeDocuments = recipes.map(recipe =>
-                    database
-                        .collection(RootCollections.RECIPES)
-                        .doc(recipe.id)
-                        .get()
+                const recipeDetails = await Promise.all(
+                    recipes.map(recipe => {
+                        database
+                            .collection(RootCollections.RECIPES)
+                            .doc(recipe.id)
+                            .get()
+                            .then(document => document.data());
+                    })
                 );
 
-                Promise.all([...recipeDocuments]).then(documents => {
-                    const recipes = documents
-                        .map(
-                            (document: firebase.firestore.DocumentSnapshot) => {
-                                if (document.exists) {
-                                    return document.data();
-                                }
-                            }
-                        )
-                        .filter(recipe => recipe);
-
-                    return response.status(200).send(recipes);
-                });
+                return response.status(200).send(recipeDetails);
             } else {
                 const message = new MessageFactory()
                     .setPrimaryDomain(MessageFactoryPrimaryDomain.GROUP)
