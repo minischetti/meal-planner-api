@@ -1,4 +1,4 @@
-import {Author, GroupUser, Ingredient, Instruction, Recipe, PlanDay} from "./data-types";
+import {Association, GroupUser, Ingredient, Instruction, Recipe, PlanDay} from "./data-types";
 
 export interface NewPersonAccountRequest {
     email: string
@@ -21,6 +21,8 @@ export interface NewRecipeRequest {
     name: string
     prepTime: string
     cookTime: string
+    recipeYield: string
+    description: string
     ingredients: Array<Ingredient>
     instructions: Array<Instruction>
 }
@@ -28,7 +30,7 @@ export interface NewRecipeRequest {
 export interface EditedRecipeRequest {
     id: string
     name: string
-    authors: Array<Author>
+    authors: Array<Association>
     ingredients: Array<Ingredient>
     instructions: Array<Instruction>
 }

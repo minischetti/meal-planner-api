@@ -1,4 +1,4 @@
-import {GroupUserRole, RecipeUserRole, PlanUserRole} from "./roles";
+import {GroupUserRole, RecipeAssociation, PlanUserRole} from "./roles";
 
 export interface Profile {
     id: string
@@ -39,7 +39,7 @@ export interface Recipe {
     prepTime: string
     cookTime: string
     yield: string
-    authors: Array<Author>
+    associations: Array<Association>
     ingredients: Array<Ingredient>
     instructions: Array<Instruction>
     favorites: Array<string> // Array of user ids
@@ -51,14 +51,14 @@ export interface EditedRecipe {
     name: string
     prepTime: string
     cookTime: string
-    authors?: Array<Author>
+    associations?: Array<Association>
     ingredients: Array<Ingredient>
     instructions: Array<Instruction>
 }
 
-export interface Author {
+export interface Association {
     id: string // user id
-    role: RecipeUserRole
+    association: RecipeAssociation
 }
 
 export interface Ingredient {

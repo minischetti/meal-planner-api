@@ -14,7 +14,7 @@ import {
     SenderInvite,
     RecipientInvite,
     AddRecipeToGroupRequest,
-    Author
+    Association
 } from "../../models/index";
 import { getDocumentsFromSnapshot } from "../../firebase/helpers";
 

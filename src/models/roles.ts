@@ -4,7 +4,7 @@ export enum GroupUserRole {
     MEMBER = "member"
 }
 
-export enum RecipeUserRole {
+export enum RecipeAssociation {
     OWNER = "owner",
     CONTRIBUTOR = "contributor",
     SUBSCRIBER = "subscriber"

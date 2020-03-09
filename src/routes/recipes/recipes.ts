@@ -15,10 +15,10 @@ import {
 } from "../../utilities/MessageFactory";
 import { RecipeValidationEngine } from "../../validation/RecipeValidationEngine";
 import {
-    Author,
+    Association,
     Recipe,
     EditedRecipe,
-    RecipeUserRole,
+    RecipeAssociation,
     NewRecipeRequest
 } from "../../models/index";
 import { RecipePermissionEngine } from "../../permissions/RecipePermissionEngine";
@@ -283,6 +283,8 @@ server.route("/api/recipes").post((request, response) => {
         name,
         prepTime,
         cookTime,
+        recipeYield,
+        description,
         ingredients,
         instructions
     } = request.body;
@@ -300,6 +302,8 @@ server.route("/api/recipes").post((request, response) => {
         !prepTime ||
         !cookTime ||
         !validName ||
+        !recipeYield ||
+        !description ||
         !validIngredients ||
         !validInstructions
     ) {
@@ -313,39 +317,40 @@ server.route("/api/recipes").post((request, response) => {
     }
 
     // Input is valid, so create a document for the new recipe
-    const newRecipeDocument = database
+    const globalRecipeDocument = database
         .collection(RootCollections.RECIPES)
         .doc();
 
     const newRecipeData: NewRecipeRequest = {
-        id: newRecipeDocument.id,
+        id: globalRecipeDocument.id,
         owner: profileId,
         name,
         prepTime,
         cookTime,
+        recipeYield,
+        description,
         ingredients,
         instructions
     };
 
+    const userRecipeDocument = database
+        .collection(RootCollections.PEOPLE)
+        .doc(profileId)
+        .collection(SubCollections.RECIPES)
+        .doc(globalRecipeDocument.id);
+
+    const userRecipeAssociationData: Association = {
+        id: globalRecipeDocument.id,
+        association: RecipeAssociation.OWNER
+    };
     // Initiate a batch operation
     const batch = database.batch();
 
     // Queue the creation of the new recipe in the recipe collection
-    batch.set(newRecipeDocument, newRecipeData);
+    batch.set(globalRecipeDocument, newRecipeData);
 
     // Queue the addition of the recipe to the author's recipe collection
-    const userRecipeData = {
-        id: newRecipeDocument.id,
-        role: RecipeUserRole.OWNER
-    };
-    batch.set(
-        database
-            .collection(RootCollections.PEOPLE)
-            .doc(profileId)
-            .collection(SubCollections.RECIPES)
-            .doc(newRecipeDocument.id),
-        userRecipeData
-    );
+    batch.set(userRecipeDocument, userRecipeAssociationData);
 
     // Commit the batch operation recipe creation
     batch
@@ -465,10 +470,10 @@ server.route("/api/recipes/:recipeId").put((request, response) => {
             if (snapshot.docs.length) {
                 const members = getDocumentsFromSnapshot(snapshot.docs);
 
-                canEditRecipe = members.some((member: Author) => {
+                canEditRecipe = members.some((member: Association) => {
                     return (
                         member.id === profileId &&
-                        RecipePermissionEngine.canEditRecipe(member.role)
+                        RecipePermissionEngine.canEditRecipe(member.association)
                     );
                 });
 

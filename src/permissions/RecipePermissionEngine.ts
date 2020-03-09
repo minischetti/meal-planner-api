@@ -1,5 +1,5 @@
 import {PermissionEngine} from "./PermissionEngine";
-import {RecipeUserRole} from "../models/index";
+import {RecipeAssociation} from "../models/index";
 
 export class RecipePermissionEngine extends PermissionEngine {
     constructor() {
@@ -9,10 +9,10 @@ export class RecipePermissionEngine extends PermissionEngine {
     /**
      * Determines if a user can edit a recipe based on their role.
      *
-     * @param {RecipeUserRole} memberRole the member's role
+     * @param {RecipeAssociation} memberRole the member's role
      * @returns {boolean} whether or not the member can edit a recipe
      */
-    static canEditRecipe(memberRole: RecipeUserRole) {
-        return memberRole === RecipeUserRole.OWNER || memberRole === RecipeUserRole.CONTRIBUTOR;
+    static canEditRecipe(memberRole: RecipeAssociation) {
+        return memberRole === RecipeAssociation.OWNER || memberRole === RecipeAssociation.CONTRIBUTOR;
     }
 }

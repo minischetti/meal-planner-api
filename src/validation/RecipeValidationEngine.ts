@@ -1,5 +1,5 @@
 import {ValidationEngine} from "./ValidationEngine";
-import {Author, Instruction, Ingredient, RecipeUserRole} from "../models/index";
+import {Association, Instruction, Ingredient, RecipeAssociation} from "../models/index";
 
 /**
  * Provides recipe validation.
@@ -21,8 +21,8 @@ export class RecipeValidationEngine extends ValidationEngine {
         return this.validateArray(ingredients);
     }
 
-    static validateAuthors(authors: Array<Author>) {
-        const hasOwner = !!authors.find(author => author.role === RecipeUserRole.OWNER);
+    static validateAuthors(authors: Array<Association>) {
+        const hasOwner = !!authors.find(author => author.association === RecipeAssociation.OWNER);
 
         if (!hasOwner) {
             return false;

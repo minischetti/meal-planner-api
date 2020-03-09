@@ -1,7 +1,7 @@
 import {MessageFactory, MessageFactoryPrimaryDomain, MessageFactorySecondaryDomain, MessageFactoryOperation, MessageFactoryResult} from "../../utilities/MessageFactory";
 import {RecipePermissionEngine} from "../../permissions/RecipePermissionEngine";
 import {RootCollections, SubCollections} from "../../firebase/collections";
-import {Author} from "../../models/index";
+import {Association} from "../../models/index";
 import {database} from "../../index";
 // require("./recipes");
 
@@ -59,7 +59,7 @@ export function updateRecipe(request: any, response: any, newData: any) {
                                     const batch = database.batch();
 
                                     // Map each author to their respective document and queue an update
-                                    newData.authors.map((author: Author) => {
+                                    newData.authors.map((author: Association) => {
                                         const authorDocument = recipeMemberCollection.doc(author.id);
                                         batch.set(authorDocument, author);
                                     });
