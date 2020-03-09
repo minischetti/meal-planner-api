@@ -66,12 +66,11 @@ server.route('/api/people/accounts').post((request: Request, response: any) => {
  * Creates a new profile.
  */
 server.route('/api/people/profiles').post((request: Request, response: any) => {
-    const {id, firstName, lastName} = request.body;
+    const {id, name} = request.body;
 
     const newUser: NewPersonProfileRequest = {
         id,
-        firstName,
-        lastName
+        name
     }
 
     database.collection(RootCollections.PEOPLE).doc(id).set(newUser)

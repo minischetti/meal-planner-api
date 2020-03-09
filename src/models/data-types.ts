@@ -2,10 +2,11 @@ import {GroupUserRole, RecipeUserRole, PlanUserRole} from "./roles";
 
 export interface Profile {
     id: string
-    firstName: string
-    lastName: string
+    name: string
     email: string
     activeMealPlan: string
+    recipes: Array<Recipe>
+    favoriteRecipes: Array<string> // Array of recipe ids
 }
 
 export interface SenderInvite extends RecipientInvite {
@@ -37,10 +38,13 @@ export interface Recipe {
     name: string
     prepTime: string
     cookTime: string
+    yield: string
     authors: Array<Author>
     ingredients: Array<Ingredient>
     instructions: Array<Instruction>
+    favorites: Array<string> // Array of user ids
 }
+
 
 export interface EditedRecipe {
     id: string

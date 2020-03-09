@@ -19,8 +19,7 @@
     },
     "people": {
         "PERSON0": {
-            "firstName": "Dominic",
-            "lastName": "Minischetti",
+            "name": "Dominic Minischetti",
             "recipes": {
                 "RECIPE0": {
                     "role": "owner"
@@ -40,8 +39,7 @@
             }
         },
         "PERSON1": {
-            "firstName": "Daniel",
-            "lastName": "Craig",
+            "name": "Daniel Craig",
             "recipes": {
                 "RECIPE0": "contributor",
                 "RECIPE1": "subscriber",
@@ -55,8 +53,7 @@
             }
         },
         "PERSON2": {
-            "firstName": "Laura",
-            "lastName": "Bailey",
+            "name": "Laura Bailey",
             "recipes": {
                 "RECIPE0": "subscriber",
                 "RECIPE1": "owner",

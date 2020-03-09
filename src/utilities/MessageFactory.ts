@@ -5,6 +5,13 @@ export enum MessageFactoryPrimaryDomain {
     PEOPLE = "people"
 }
 
+export const MESSAGE_FACTORY_SECONDARY_DOMAIN = {
+    RECIPE: {
+        CONTRIBUTORS: "contributors",
+        FAVORITES: "favorites"
+    }
+}
+
 export enum MessageFactorySecondaryDomain {
     AUTHORS = "authors",
     INGREDIENTS = "ingredients",
@@ -35,7 +42,7 @@ export enum MessageFactoryResult {
 
 export class MessageFactory {
     primaryDomain: MessageFactoryPrimaryDomain;
-    secondaryDomain: MessageFactorySecondaryDomain;
+    secondaryDomain: MessageFactorySecondaryDomain | string;
     operation: MessageFactoryOperation;
     result: MessageFactoryResult;
     message: string;
@@ -46,7 +53,7 @@ export class MessageFactory {
         return this;
     }
 
-    setSecondaryDomain(secondaryDomain: MessageFactorySecondaryDomain) {
+    setSecondaryDomain(secondaryDomain: MessageFactorySecondaryDomain | string) {
         this.secondaryDomain = secondaryDomain;
 
         return this;

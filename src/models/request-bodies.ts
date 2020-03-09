@@ -7,8 +7,7 @@ export interface NewPersonAccountRequest {
 
 export interface NewPersonProfileRequest {
     id: string
-    firstName: string
-    lastName: string
+    name: string
 }
 
 export interface NewGroupRequest {
@@ -18,6 +17,7 @@ export interface NewGroupRequest {
 
 export interface NewRecipeRequest {
     id: string // new recipe document id
+    owner: string
     name: string
     prepTime: string
     cookTime: string

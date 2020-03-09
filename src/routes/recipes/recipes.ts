@@ -1,12 +1,17 @@
 import { server, database } from "../../index";
-import { RootCollections, SubCollections } from "../../firebase/collections";
+import {
+    RootCollections,
+    SubCollections,
+    COLLECTION
+} from "../../firebase/collections";
 import { getDocumentsFromSnapshot } from "../../firebase/helpers";
 import {
     MessageFactory,
     MessageFactoryPrimaryDomain,
     MessageFactorySecondaryDomain,
     MessageFactoryOperation,
-    MessageFactoryResult
+    MessageFactoryResult,
+    MESSAGE_FACTORY_SECONDARY_DOMAIN
 } from "../../utilities/MessageFactory";
 import { RecipeValidationEngine } from "../../validation/RecipeValidationEngine";
 import {
@@ -18,33 +23,33 @@ import {
 } from "../../models/index";
 import { RecipePermissionEngine } from "../../permissions/RecipePermissionEngine";
 
-/**
- * Gets all recipes.
- */
-server.route("/api/recipes/").get((request, response) => {
-    database
-        .collection(RootCollections.RECIPES)
-        .get()
-        .then((snapshot: firebase.firestore.QuerySnapshot) => {
-            if (snapshot.docs.length) {
-                const recipes = getDocumentsFromSnapshot(snapshot.docs);
+// /**
+//  * Gets all recipes.
+//  */
+// server.route("/api/recipes/").get((request, response) => {
+//     database
+//         .collection(RootCollections.RECIPES)
+//         .get()
+//         .then((snapshot: firebase.firestore.QuerySnapshot) => {
+//             if (snapshot.docs.length) {
+//                 const recipes = getDocumentsFromSnapshot(snapshot.docs);
 
-                response.status(200).send(recipes);
-            } else {
-                const message = new MessageFactory()
-                    .setPrimaryDomain(MessageFactoryPrimaryDomain.PLAN)
-                    .setOperation(MessageFactoryOperation.GET)
-                    .setResult(MessageFactoryResult.EMPTY);
+//                 response.status(200).send(recipes);
+//             } else {
+//                 const message = new MessageFactory()
+//                     .setPrimaryDomain(MessageFactoryPrimaryDomain.PLAN)
+//                     .setOperation(MessageFactoryOperation.GET)
+//                     .setResult(MessageFactoryResult.EMPTY);
 
-                response.status(404).send(message);
-            }
-        })
-        .catch((error: firebase.FirebaseError) => {
-            response
-                .status(400)
-                .send(`Error getting recipes: ${error.message}`);
-        });
-});
+//                 response.status(404).send(message);
+//             }
+//         })
+//         .catch((error: firebase.FirebaseError) => {
+//             response
+//                 .status(400)
+//                 .send(`Error getting recipes: ${error.message}`);
+//         });
+// });
 
 /**
  * Gets a single recipe.
@@ -57,22 +62,21 @@ server.route("/api/recipes/:recipe/").get((request, response) => {
 
     recipeDocument
         .get()
-        .then(document => {
+        .then(async document => {
             if (document.exists) {
                 const recipe = document.data();
-                recipeDocument
-                    .collection(SubCollections.RECIPE_MEMBERS)
+
+                const associations = await recipeDocument
+                    .collection(COLLECTION.SUB.RECIPES.ASSOCIATIONS)
                     .get()
                     .then((snapshot: firebase.firestore.QuerySnapshot) => {
-                        const recipeMembers = getDocumentsFromSnapshot(
-                            snapshot.docs
-                        );
-                        const recipeWithMembers = {
-                            ...recipe,
-                            members: recipeMembers
-                        };
-                        response.status(200).send(recipeWithMembers);
+                        return getDocumentsFromSnapshot(snapshot.docs);
                     });
+
+                return response.status(200).send({
+                    ...recipe,
+                    associations
+                });
             }
         })
         .catch((error: firebase.firestore.FirestoreError) => {
@@ -136,6 +140,141 @@ server.route("/api/people/:person/recipes").get((request, response) => {
 });
 
 /**
+ * Adds an association to a recipe.
+ */
+server
+    .route("/api/recipes/:recipeId/associations")
+    .post(async (request, response) => {
+        const recipeId = request.params["recipeId"];
+        const { profileId, association } = request.body;
+
+        if (!profileId || !association) {
+            return response.status(400).send();
+        }
+
+        // Get the profile document
+        const profileDocument = database
+            .collection(COLLECTION.ROOT.PEOPLE)
+            .doc(profileId);
+
+        // If the profile document doesn't exist, abort
+        if (!(await profileDocument.get()).exists) {
+            return response.status(404).send("profile doesn't exist");
+        }
+
+        // Get the recipe document
+        const recipeDocument = database
+            .collection(COLLECTION.ROOT.RECIPES)
+            .doc(recipeId);
+
+        // If the recipe document doesn't exist, abort
+        if (!(await recipeDocument.get()).exists) {
+            return response.status(404).send("recipe doesn't exist");
+        }
+
+        // Initialize the batch operation
+        const batch = database.batch();
+
+        // Get the user's recipe reference document
+        const profileRecipeDocument = profileDocument
+            .collection(COLLECTION.SUB.PEOPLE.RECIPES)
+            .doc(recipeId);
+
+        // Queue the user's document update
+        batch.set(profileRecipeDocument, {
+            id: recipeId,
+            association
+        });
+
+        // Get the recipe's document referencing the user
+        const recipeAssociationDocument = recipeDocument
+            .collection(COLLECTION.SUB.RECIPES.ASSOCIATIONS)
+            .doc(profileId);
+
+        // Queue the recipe document update
+        batch.set(recipeAssociationDocument, { id: profileId, association });
+
+        // Batch commit the updates
+        batch
+            .commit()
+            .then(() => {
+                return response.status(200).send();
+            })
+            .catch((error: firebase.firestore.FirestoreError) => {
+                return response.status(400).send();
+            });
+    });
+
+/**
+ * Deletes an association from a recipe.
+ */
+server
+    .route("/api/recipes/:recipeId/associations/:profileId")
+    .delete(async (request, response) => {
+        const recipeId = request.params["recipeId"];
+        const profileId = request.params["profileId"];
+
+        if (!profileId) {
+            return response.status(400).send();
+        }
+
+        // Get the profile document
+        const profileDocument = database
+            .collection(COLLECTION.ROOT.PEOPLE)
+            .doc(profileId);
+
+        // If the profile document doesn't exist, abort
+        if (!(await profileDocument.get()).exists) {
+            return response.status(404).send("profile doesn't exist");
+        }
+
+        // Get the recipe document
+        const recipeDocument = database
+            .collection(COLLECTION.ROOT.RECIPES)
+            .doc(recipeId);
+
+        // If the recipe document doesn't exist, abort
+        if (!(await recipeDocument.get()).exists) {
+            return response.status(404).send("recipe doesn't exist");
+        }
+
+        const recipeAssociationDocument = recipeDocument
+            .collection(COLLECTION.SUB.RECIPES.ASSOCIATIONS)
+            .doc(profileId);
+
+        // If the user is not already associated with this recipe, abort
+        if (!(await recipeAssociationDocument.get()).exists) {
+            return response
+                .status(400)
+                .send("user is not already associated with this recipe");
+        }
+
+        // Initialize the batch operation
+        const batch = database.batch();
+
+        // Get the user's recipe reference document
+        const profileRecipeDocument = profileDocument
+            .collection(COLLECTION.SUB.PEOPLE.RECIPES)
+            .doc(recipeId);
+
+        // Queue the user's document update
+        batch.delete(profileRecipeDocument);
+
+        // Queue the recipe document update
+        batch.delete(recipeAssociationDocument);
+
+        // Batch commit the updates
+        batch
+            .commit()
+            .then(() => {
+                response.status(200).send();
+            })
+            .catch((error: firebase.firestore.FirestoreError) => {
+                response.status(400).send();
+            });
+    });
+
+/**
  * Creates a new recipe.
  */
 server.route("/api/recipes").post((request, response) => {
@@ -178,8 +317,9 @@ server.route("/api/recipes").post((request, response) => {
         .collection(RootCollections.RECIPES)
         .doc();
 
-    const newRecipe: NewRecipeRequest = {
+    const newRecipeData: NewRecipeRequest = {
         id: newRecipeDocument.id,
+        owner: profileId,
         name,
         prepTime,
         cookTime,
@@ -190,29 +330,24 @@ server.route("/api/recipes").post((request, response) => {
     // Initiate a batch operation
     const batch = database.batch();
 
-    // Queue the creation of the new recipe
-    batch.set(newRecipeDocument, newRecipe);
+    // Queue the creation of the new recipe in the recipe collection
+    batch.set(newRecipeDocument, newRecipeData);
 
-    // Queue the addition of the author to the recipe's members
-    const author = { id: profileId, role: RecipeUserRole.OWNER };
-    batch.set(
-        newRecipeDocument
-            .collection(SubCollections.RECIPE_MEMBERS)
-            .doc(profileId),
-        author
-    );
-
-    // Queue the addition of the recipe to the author's profile
+    // Queue the addition of the recipe to the author's recipe collection
+    const userRecipeData = {
+        id: newRecipeDocument.id,
+        role: RecipeUserRole.OWNER
+    };
     batch.set(
         database
             .collection(RootCollections.PEOPLE)
             .doc(profileId)
             .collection(SubCollections.RECIPES)
             .doc(newRecipeDocument.id),
-        { id: newRecipeDocument.id, role: author.role }
+        userRecipeData
     );
 
-    // Commit the batch operation for group creation and member additions
+    // Commit the batch operation recipe creation
     batch
         .commit()
         .then(() => {
@@ -427,3 +562,65 @@ server
                 response.status(400).send(message);
             });
     });
+
+// /**
+//  * Favorites a recipe.
+//  */
+// server.route("/api/recipes/:recipeId/favorite").post((request, response) => {
+//     const recipeId = request.params["recipeId"];
+//     const { userId, favoriteStatus } = request.body;
+
+//     const recipeDocument = database
+//         .collection(COLLECTION.ROOT.RECIPES)
+//         .doc(recipeId)
+//         .collection(COLLECTION.SUB.RECIPES.FAVORITES)
+//         .doc(userId)
+
+//     const userDocument = database
+//         .collection(COLLECTION.ROOT.PEOPLE)
+//         .doc(userId)
+//         .collection(COLLECTION.SUB.PEOPLE.FAVORITES)
+//         .doc(recipeId)
+
+//     // Initiate a batch operation
+//     const batch = database.batch();
+
+//     // Update the group's invite with the answer and inactive status
+//     const {id: userId, role: RecipeUserRole.S}
+//     batch.set(recipeDocument, {})
+
+//     // Update the recipient's invite with the answer and inactive status
+//     batch.update(recipientInviteDocument, inviteResponse);
+
+//     // If the recipient has accepted the invite, add them to the group
+//     if (answer === true) {
+//         batch.set(groupMemberCollection.doc(person), {
+//             id: person,
+//             status: GroupUserRole.MEMBER
+//         });
+//     }
+
+//     // Batch commit updates to the group and person's invites, then add the person to the group if the invite was accepted
+//     batch
+//         .commit()
+//         .then(() => {
+//             const message = new MessageFactory()
+//                 .setPrimaryDomain(MessageFactoryPrimaryDomain.PEOPLE)
+//                 .setSecondaryDomain(MessageFactorySecondaryDomain.INVITES)
+//                 .setOperation(MessageFactoryOperation.UPDATE)
+//                 .setResult(MessageFactoryResult.SUCCESS)
+//                 .setMessage(`Person ${person} added to group ${group}`);
+
+//             response.status(200).send(message);
+//         })
+//         .catch((error: firebase.firestore.FirestoreError) => {
+//             const message = new MessageFactory()
+//                 .setPrimaryDomain(MessageFactoryPrimaryDomain.PEOPLE)
+//                 .setSecondaryDomain(MessageFactorySecondaryDomain.INVITES)
+//                 .setOperation(MessageFactoryOperation.UPDATE)
+//                 .setResult(MessageFactoryResult.ERROR)
+//                 .setMessage(error.message);
+
+//             response.status(400).send(message);
+//         });
+// });

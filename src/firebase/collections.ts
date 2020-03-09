@@ -15,3 +15,25 @@ export enum SubCollections {
     PLANS = "plans",
     DAYS = "days"
 }
+
+export const COLLECTION = {
+    ROOT: {
+        PEOPLE: "people",
+        GROUPS: "groups",
+        RECIPES: "recipes",
+        PLANS: "plans"
+    },
+    SUB: {
+        PEOPLE: {
+            GROUPS: "groups",
+            RECIPES: "recipes"
+        },
+        GROUPS: {
+            MEMBERS: "members"
+        },
+        RECIPES: {
+            ASSOCIATIONS: "associations"
+        },
+        PLANS: {}
+    }
+};
