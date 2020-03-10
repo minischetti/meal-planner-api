@@ -1,5 +1,9 @@
 import { server, database } from "../../index";
-import { RootCollections, SubCollections } from "../../firebase/collections";
+import {
+    RootCollections,
+    SubCollections,
+    COLLECTION
+} from "../../firebase/collections";
 import {
     MessageFactory,
     MessageFactoryPrimaryDomain,
@@ -8,13 +12,14 @@ import {
     MessageFactoryResult
 } from "../../utilities/MessageFactory";
 import {
-    NewGroupRequest,
+    GroupDocumentData,
     GroupUser,
-    GroupUserRole,
+    GroupAssociation,
     SenderInvite,
     RecipientInvite,
     AddRecipeToGroupRequest,
-    Association
+    Association,
+    NewGroupRequest
 } from "../../models/index";
 import { getDocumentsFromSnapshot } from "../../firebase/helpers";
 
@@ -22,32 +27,46 @@ import { getDocumentsFromSnapshot } from "../../firebase/helpers";
  * Creates a new group.
  */
 server.route("/api/groups").post((request, response) => {
-    const { name, owner } = request.body;
+    const { name, userId }: NewGroupRequest = request.body;
 
+    if (!name || !userId) {
+        return response.status(400).send();
+    }
+
+    // Create the global group document
     const groupDocument = database.collection(RootCollections.GROUPS).doc();
+
+    // The group's id
     const groupDocumentId = groupDocument.id;
 
-    const newGroup: NewGroupRequest = {
+    // The group document's data
+    const groupDocumentData: GroupDocumentData = {
         id: groupDocumentId,
-        name
+        name,
+        owner: userId
     };
 
-    const newOwner: GroupUser = {
-        id: owner,
-        role: GroupUserRole.OWNER
+    // Create the user's group document
+    const userGroupDocument = database
+        .collection(COLLECTION.ROOT.PEOPLE)
+        .doc(userId)
+        .collection(COLLECTION.SUB.PEOPLE.GROUPS)
+        .doc(groupDocumentId);
+
+    // The user's group document data
+    const userGroupDocumentData = {
+        id: groupDocumentData,
+        association: GroupAssociation.OWNER
     };
 
     // Initiate a batch operation
     const batch = database.batch();
 
-    // Queue the creation of a new group
-    batch.set(groupDocument, newGroup);
+    // Queue the creation of the new global group document
+    batch.set(groupDocument, groupDocumentData);
 
-    // Queue the addition of the group owner as a member
-    batch.set(
-        groupDocument.collection(SubCollections.GROUP_MEMBERS).doc(owner),
-        newOwner
-    );
+    // Queue the creation of the user's group document
+    batch.set(userGroupDocument, userGroupDocumentData);
 
     // Commit the batch operation for group creation and member addition
     batch
@@ -56,7 +75,8 @@ server.route("/api/groups").post((request, response) => {
             const message = new MessageFactory()
                 .setPrimaryDomain(MessageFactoryPrimaryDomain.GROUP)
                 .setOperation(MessageFactoryOperation.CREATE)
-                .setResult(MessageFactoryResult.SUCCESS);
+                .setResult(MessageFactoryResult.SUCCESS)
+                .setData({ groupId: groupDocumentId });
 
             response.status(200).send(message);
         })

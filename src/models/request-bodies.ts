@@ -11,8 +11,19 @@ export interface NewPersonProfileRequest {
 }
 
 export interface NewGroupRequest {
-    id: string // new group document id
-    name: string
+    name: string // the group name
+    userId: string // the owner's id
+}
+
+export interface GroupDocumentData {
+    id: string // new group id
+    name: string,
+    owner: string, // owner's user id
+}
+
+export interface UserGroupDocumentData {
+    id: string // group id
+    association: string, // the user's association to the group
 }
 
 export interface NewRecipeRequest {

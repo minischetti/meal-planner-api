@@ -7,7 +7,7 @@ import {
     MessageFactoryOperation,
     MessageFactoryResult
 } from "../../utilities/MessageFactory";
-import { GroupUserRole, Group } from "../../models/index";
+import { GroupAssociation, Group } from "../../models/index";
 import { getDocumentsFromSnapshot } from "../../firebase/helpers";
 
 /**
@@ -144,7 +144,7 @@ server
         if (answer === true) {
             batch.set(groupMemberCollection.doc(person), {
                 id: person,
-                status: GroupUserRole.MEMBER
+                status: GroupAssociation.MEMBER
             });
         }
 

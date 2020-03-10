@@ -1,4 +1,4 @@
-export enum GroupUserRole {
+export enum GroupAssociation {
     OWNER = "owner",
     CONTRIBUTOR = "contributor",
     MEMBER = "member"

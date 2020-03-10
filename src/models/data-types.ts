@@ -1,4 +1,4 @@
-import {GroupUserRole, RecipeAssociation, PlanUserRole} from "./roles";
+import {GroupAssociation, RecipeAssociation, PlanUserRole} from "./roles";
 
 export interface Profile {
     id: string
@@ -31,7 +31,7 @@ export interface Group {
 
 export interface GroupUser {
     id: string // user id
-    role: GroupUserRole
+    role: GroupAssociation
 }
 
 export interface Recipe {

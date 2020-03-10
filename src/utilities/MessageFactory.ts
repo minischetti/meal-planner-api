@@ -46,6 +46,7 @@ export class MessageFactory {
     operation: MessageFactoryOperation;
     result: MessageFactoryResult;
     message: string;
+    data: object;
 
     setPrimaryDomain(primaryDomain: MessageFactoryPrimaryDomain) {
         this.primaryDomain = primaryDomain;
@@ -73,6 +74,12 @@ export class MessageFactory {
 
     setMessage(message: string) {
         this.message = message;
+
+        return this;
+    }
+
+    setData(data: object) {
+        this.data = data;
 
         return this;
     }
