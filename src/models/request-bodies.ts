@@ -11,13 +11,15 @@ export interface NewPersonProfileRequest {
 }
 
 export interface NewGroupRequest {
-    name: string // the group name
+    name: string // the group's name
+    description: string // the group's description
     userId: string // the owner's id
 }
 
 export interface GroupDocumentData {
     id: string // new group id
-    name: string,
+    name: string
+    description: string
     owner: string, // owner's user id
 }
 
