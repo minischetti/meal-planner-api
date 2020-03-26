@@ -11,6 +11,115 @@ import { GroupAssociation, Group } from "../../models/index";
 import { getDocumentsFromSnapshot } from "../../firebase/helpers";
 
 /**
+ * Gets all people.
+ */
+server.route("/api/people/").get((request, response) => {
+    database
+        .collection(RootCollections.PEOPLE)
+        .get()
+        .then((snapshot: firebase.firestore.QuerySnapshot) => {
+            if (snapshot.docs.length) {
+                const people = getDocumentsFromSnapshot(snapshot.docs);
+
+                const peopleDocuments = people.map((person: any) =>
+                    database
+                        .collection(RootCollections.PEOPLE)
+                        .doc(person.id)
+                        .get()
+                );
+
+                Promise.all([...peopleDocuments]).then((documents: any) => {
+                    const people = documents
+                        .map(
+                            (document: firebase.firestore.DocumentSnapshot) => {
+                                if (document.exists) {
+                                    return document.data();
+                                }
+                            }
+                        )
+                        .filter((person: object) => person);
+
+                    response.status(200).send(people);
+                });
+            } else {
+                const message = new MessageFactory()
+                    .setPrimaryDomain(MessageFactoryPrimaryDomain.PEOPLE)
+                    .setOperation(MessageFactoryOperation.GET)
+                    .setResult(MessageFactoryResult.EMPTY);
+
+                response.status(404).send(message);
+            }
+        })
+        .catch((error: firebase.FirebaseError) => {
+            const message = new MessageFactory()
+                .setPrimaryDomain(MessageFactoryPrimaryDomain.PEOPLE)
+                .setOperation(MessageFactoryOperation.GET)
+                .setResult(MessageFactoryResult.ERROR)
+                .setMessage(error.message);
+
+            response.status(400).send(message);
+        });
+});
+
+/**
+ * Searches all people.
+ */
+server.route("/api/people/search?query=:query").get((request, response) => {
+    const query = request.params["query"];
+
+    database
+        .collection(RootCollections.PEOPLE)
+        .get()
+        .then((snapshot: firebase.firestore.QuerySnapshot) => {
+            if (snapshot.docs.length) {
+                const people = getDocumentsFromSnapshot(snapshot.docs);
+
+                const peopleDocuments = people.map((person: any) =>
+                    database
+                        .collection(RootCollections.PEOPLE)
+                        .doc(person.id)
+                        .get()
+                );
+
+                Promise.all([...peopleDocuments]).then((documents: any) => {
+                    const people = documents
+                        .map(
+                            (document: firebase.firestore.DocumentSnapshot) => {
+                                if (document.exists) {
+                                    return document.data();
+                                }
+                            }
+                        )
+                        .filter((person: any) => person)
+                        .filter((person: any) => {
+                            return person.name
+                                .toLowerCase()
+                                .contains(query.toLowerCase());
+                        });
+
+                    response.status(200).send(people);
+                });
+            } else {
+                const message = new MessageFactory()
+                    .setPrimaryDomain(MessageFactoryPrimaryDomain.PEOPLE)
+                    .setOperation(MessageFactoryOperation.GET)
+                    .setResult(MessageFactoryResult.EMPTY);
+
+                response.status(404).send(message);
+            }
+        })
+        .catch((error: firebase.FirebaseError) => {
+            const message = new MessageFactory()
+                .setPrimaryDomain(MessageFactoryPrimaryDomain.PEOPLE)
+                .setOperation(MessageFactoryOperation.GET)
+                .setResult(MessageFactoryResult.ERROR)
+                .setMessage(error.message);
+
+            response.status(400).send(message);
+        });
+});
+
+/**
  * Gets a person.
  */
 server.route("/api/people/:person/").get((request, response) => {
