@@ -65,7 +65,7 @@ server.route("/api/people/").get((request, response) => {
  * Searches all people.
  */
 server.route("/api/people/search?query=:query").get((request, response) => {
-    const query = request.params["query"];
+    const query = request.query["query"];
 
     database
         .collection(RootCollections.PEOPLE)
@@ -97,7 +97,7 @@ server.route("/api/people/search?query=:query").get((request, response) => {
                                 .contains(query.toLowerCase());
                         });
 
-                    response.status(200).send(people);
+                    return response.status(200).send(people);
                 });
             } else {
                 const message = new MessageFactory()
@@ -105,7 +105,7 @@ server.route("/api/people/search?query=:query").get((request, response) => {
                     .setOperation(MessageFactoryOperation.GET)
                     .setResult(MessageFactoryResult.EMPTY);
 
-                response.status(404).send(message);
+                return response.status(404).send(message);
             }
         })
         .catch((error: firebase.FirebaseError) => {
@@ -115,7 +115,7 @@ server.route("/api/people/search?query=:query").get((request, response) => {
                 .setResult(MessageFactoryResult.ERROR)
                 .setMessage(error.message);
 
-            response.status(400).send(message);
+            return response.status(400).send(message);
         });
 });
 
