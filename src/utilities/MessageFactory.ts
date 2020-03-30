@@ -28,7 +28,8 @@ export enum MessageFactoryOperation {
     CREATE = "create",
     UPDATE = "update",
     DELETE = "delete",
-    GET = "get"
+    GET = "get",
+    SEARCH = "search"
 }
 
 export enum MessageFactoryResult {

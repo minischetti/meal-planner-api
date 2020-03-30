@@ -13,7 +13,7 @@ export interface NewPersonProfileRequest {
 export interface NewGroupRequest {
     name: string // the group's name
     description: string // the group's description
-    userId: string // the owner's id
+    profileId: string // the owner's id
 }
 
 export interface GroupDocumentData {

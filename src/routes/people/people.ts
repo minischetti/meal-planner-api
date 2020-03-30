@@ -64,8 +64,9 @@ server.route("/api/people/").get((request, response) => {
 /**
  * Searches all people.
  */
-server.route("/api/people/search?query=:query").get((request, response) => {
-    const query = request.query["query"];
+server.route("/api/people/search").get((request, response) => {
+    const query = request.query.searchQuery;
+    console.log("query", query);
 
     database
         .collection(RootCollections.PEOPLE)
@@ -92,9 +93,7 @@ server.route("/api/people/search?query=:query").get((request, response) => {
                         )
                         .filter((person: any) => person)
                         .filter((person: any) => {
-                            return person.name
-                                .toLowerCase()
-                                .contains(query.toLowerCase());
+                            return person.name.toLowerCase().includes(query.toLowerCase());
                         });
 
                     return response.status(200).send(people);
@@ -102,7 +101,7 @@ server.route("/api/people/search?query=:query").get((request, response) => {
             } else {
                 const message = new MessageFactory()
                     .setPrimaryDomain(MessageFactoryPrimaryDomain.PEOPLE)
-                    .setOperation(MessageFactoryOperation.GET)
+                    .setOperation(MessageFactoryOperation.SEARCH)
                     .setResult(MessageFactoryResult.EMPTY);
 
                 return response.status(404).send(message);
@@ -111,7 +110,7 @@ server.route("/api/people/search?query=:query").get((request, response) => {
         .catch((error: firebase.FirebaseError) => {
             const message = new MessageFactory()
                 .setPrimaryDomain(MessageFactoryPrimaryDomain.PEOPLE)
-                .setOperation(MessageFactoryOperation.GET)
+                .setOperation(MessageFactoryOperation.SEARCH)
                 .setResult(MessageFactoryResult.ERROR)
                 .setMessage(error.message);
 

@@ -5,6 +5,7 @@ import "firebase/database";
 import "firebase/firestore";
 import {RootCollections} from "./firebase/collections";
 import {NewPersonProfileRequest} from "./models/request-bodies";
+import morgan from "morgan";
 
 // Firebase project configuration
 const firebaseConfig = {
@@ -28,8 +29,10 @@ export const database: firebase.firestore.Firestore = !firebase.apps.length ? fi
 export const server = express();
 const listenPort = 8000;
 
+server.use(morgan("common"));
+
 server.listen(listenPort, () => {
-    console.log(`Meal Planner API listening on port ${listenPort}`);
+    console.log(`Meal Planner API listening on port: ${listenPort}`);
 });
 
 server.use(express.json());

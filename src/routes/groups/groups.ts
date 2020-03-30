@@ -27,9 +27,9 @@ import { getDocumentsFromSnapshot } from "../../firebase/helpers";
  * Creates a new group.
  */
 server.route("/api/groups").post((request, response) => {
-    const { name, description, userId }: NewGroupRequest = request.body;
+    const { name, description, profileId }: NewGroupRequest = request.body;
 
-    if (!name || !userId || !description) {
+    if (!name || !profileId || !description) {
         return response.status(400).send();
     }
 
@@ -44,13 +44,13 @@ server.route("/api/groups").post((request, response) => {
         id: groupDocumentId,
         name,
         description,
-        owner: userId
+        owner: profileId
     };
 
     // Create the user's group document
     const userGroupDocument = database
         .collection(COLLECTION.ROOT.PEOPLE)
-        .doc(userId)
+        .doc(profileId)
         .collection(COLLECTION.SUB.PEOPLE.GROUPS)
         .doc(groupDocumentId);
 
