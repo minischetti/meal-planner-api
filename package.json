@@ -1,36 +1,36 @@
 {
-  "name": "workout-planner-api",
-  "version": "1.0.0",
-  "description": "Workout Planner API",
-  "main": "src/index.ts",
-  "dependencies": {
-    "@types/morgan": "^1.9.0",
-    "express": "^4.17.1",
-    "firebase": "^7.6.1",
-    "morgan": "^1.10.0"
-  },
-  "devDependencies": {
-    "@types/express": "^4.17.2",
-    "@types/jest": "^24.0.24",
-    "concurrently": "^5.1.0",
-    "jest": "^24.9.0",
-    "nodemon": "^2.0.2",
-    "ts-node": "^8.6.2",
-    "typescript": "^3.7.4"
-  },
-  "scripts": {
-    "dev": "concurrently -k -n \"TypeScript,Node\" -c \"blue.bold,green.bold\" \"npm run watch-ts\" \"nodemon ./dist/index.js\"",
-    "watch-ts": "tsc -w",
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/minischetti/workout-planner-api.git"
-  },
-  "author": "Dominic Minischetti III",
-  "license": "ISC",
-  "bugs": {
-    "url": "https://github.com/minischetti/workout-planner-api/issues"
-  },
-  "homepage": "https://github.com/minischetti/workout-planner-api#readme"
+    "name": "workout-planner-api",
+    "version": "1.0.0",
+    "description": "Workout Planner API",
+    "main": "src/index.ts",
+    "dependencies": {
+        "@types/morgan": "^1.9.0",
+        "express": "^4.17.1",
+        "firebase": "^7.6.1",
+        "morgan": "^1.10.0"
+    },
+    "devDependencies": {
+        "@types/express": "^4.17.2",
+        "@types/jest": "^24.0.24",
+        "concurrently": "^5.1.0",
+        "jest": "^24.9.0",
+        "nodemon": "^2.0.2",
+        "ts-node": "^8.6.2",
+        "typescript": "^3.7.4"
+    },
+    "scripts": {
+        "start": "concurrently -k -n \"TypeScript,Node\" -c \"blue.bold,green.bold\" \"npm run watch-ts\" \"nodemon ./dist/index.js\"",
+        "watch-ts": "tsc -w",
+        "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/minischetti/workout-planner-api.git"
+    },
+    "author": "Dominic Minischetti III",
+    "license": "ISC",
+    "bugs": {
+        "url": "https://github.com/minischetti/workout-planner-api/issues"
+    },
+    "homepage": "https://github.com/minischetti/workout-planner-api#readme"
 }
